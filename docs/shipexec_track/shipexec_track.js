@@ -12,7 +12,7 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.4.3";
+	shExTrVersion = "1.5.0";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedPages = ['http://shipping.vetpdx.com/ShipExec/Content/RateShip/Manifest.aspx', 'http://10.138.0.18/ShipExec/Content/RateShip/Manifest.aspx'];
@@ -61,6 +61,9 @@ function shExTrInit(){
 	shExTrPostRequest = null;
 	
 	shExTrCountsBeingRequested = false;
+
+	shExTrScannedBarcode = "";
+	shExTrScannedBarcodeShippedPrevious = "";
 	
 	//Has a shipment been done since the log in has changed
 	shExTrHasShippedSinceLogIn = false;
@@ -263,6 +266,8 @@ function shExTrInit(){
 	shExloadInputElement = document.getElementById('ctl00_cphContent_load_ctrl_load_txt');
 	//Find Load Button
 	shExloadButtonElement = document.getElementById('ctl00_cphContent_load_btn');
+	//Find Load Text Input Field
+	shExloadInputElement = document.getElementById('ctl00_cphContent_load_ctrl_load_txt');
 	
 	//Add event to Autoship Button for toggling
 	shExTrAutoButton.addEventListener('click',shExTrOnButtonAutoClick);
@@ -279,7 +284,10 @@ function shExTrInit(){
 	//Add event for pressing enter in username input field
 	shExTrInputUser.addEventListener("keyup", shExTrOnInputUsernameKeyUp);
 	
-	//Load cookies for mule server login status if present.
+	//Add event for change in load input field
+	shExloadInputElement.addEventListener("change", shExTrOnInputLoadChange);
+	
+	//Load cookies for login status if present.
 	shExTrLoginToken = shExTrGetCookie('ShExTrToken');
 	shExTrLoginName = shExTrGetCookie('ShExTrName');
 	if (shExTrLoginToken != ''){
@@ -645,6 +653,10 @@ function shExTrAddUnsentCount(){
 		case 23:      
 			shExTrUnsentCounts[match].h23++;
 			break;
+	}
+	if (shExTrScannedBarcode != shExTrScannedBarcodeShippedPrevious){
+		shExTrScannedBarcodeShippedPrevious = shExTrScannedBarcode;
+		shExTrUnsentCounts[match].lpns += shExTrScannedBarcode + '+';
 	}
 }
 
@@ -1081,6 +1093,14 @@ function shExTrOnInputUsernameKeyUp(event){
 	}
 }
 
+//Callback function for Load Input being changed.
+function shExTrOnInputLoadChange(event){
+	let barcode = event.target.value;
+	if (typeof barcode !== 'undefined' && barcode != ""){
+		shExTrScannedBarcode = barcode;
+	}
+}
+
 //#region Network
 //Callback function for request when loading usernames from Google Sheet
 function shExTrOnLoadRefreshCountsFromGoogleSheet(){
@@ -1280,7 +1300,7 @@ function shExTrLoadUnsentCounts() {
 		if (c != ''){
 			console.log("Unsent Counts Cookie: " + c);
 			let args = c.split(',');
-			for (let i = 0; i < args.length-27; i += 28){
+			for (let i = 0; i < args.length-28; i += 29){
 				var thisCount = new UnsentCountsObject();
 				thisCount.username = args[i];
 				thisCount.day = parseInt(args[i+1]);
@@ -1310,6 +1330,7 @@ function shExTrLoadUnsentCounts() {
 				thisCount.h21 = parseInt(args[i+25]);
 				thisCount.h22 = parseInt(args[i+26]);
 				thisCount.h23 = parseInt(args[i+27]);
+				thisCount.lpns = args[i+28];
 				shExTrUnsentCounts.push(thisCount);
 			}
 		}
@@ -1359,6 +1380,7 @@ function shExTrSaveUnsentCounts() {
 		cstring += shExTrUnsentCounts[i].h21 + ',';
 		cstring += shExTrUnsentCounts[i].h22 + ',';
 		cstring += shExTrUnsentCounts[i].h23 + ',';
+		cstring += shExTrUnsentCounts[i].lpns + ',';
 	}
 	
 	document.cookie = cname + '=' + cstring + ';' + expires + ';';
@@ -1407,6 +1429,7 @@ function UnsentCountsObject() {
 	this.h22 = 0;
 	this.h23 = 0;
 	this.station = shExTrStationName;
+	this.lpns = "";
 	return this;
 }
 //#endregion

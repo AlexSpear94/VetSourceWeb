@@ -3,7 +3,7 @@
 // @description    Track ship numbers at Casi Stations
 // @author         Alex Spear
 // @include        http://casi-vetsource:7000/*
-// @version        0.3.2
+// @version        0.4.0
 // ==/UserScript==
 
 caTrInit();
@@ -12,7 +12,7 @@ caTrInit();
 //Main Init Function.
 function caTrInit(){
 	//Setup Globals
-	caTrVersion = "0.3.2";
+	caTrVersion = "0.4.0";
 	caTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	caTrDomain = "http://casi-vetsource:7000";
 	
@@ -21,7 +21,7 @@ function caTrInit(){
 	
 	caTrEnablePosting = false;
 	caTrEnableShipping = false;
-	caTrEnablePicking = true;
+	caTrEnablePicking = false;
 	caTrEnableAutoAdvanceBelt = false;
 	
 	let choseFunction = false;
@@ -622,6 +622,7 @@ function caTrAddUnsentCount(){
 			caTrUnsentCounts[match].h23++;
 			break;
 	}
+	caTrUnsentCounts[match].lpns += caTrLPN + '+';
 }
 
 //Function for creating a new post request, if there are counts to send.
@@ -835,6 +836,7 @@ function caTrSaveUnsentCounts() {
 		cstring += caTrUnsentCounts[i].h22 + ',';
 		cstring += caTrUnsentCounts[i].h23 + ',';
 		cstring += caTrUnsentCounts[i].station + ',';
+		cstring += caTrUnsentCounts[i].lpns + ',';
 	}
 	
 	document.cookie = cname + '=' + cstring + ';' + expires + '; path=/';
@@ -847,7 +849,7 @@ function caTrLoadUnsentCounts() {
 		let c = caTrGetCookie('CaTrUCs');
 		if (c != ''){
 			let args = c.split(',');
-			for (let i = 0; i < args.length-28; i += 29){
+			for (let i = 0; i < args.length-29; i += 30){
 				var thisCount = new UnsentCountsObject();
 				thisCount.username = args[i];
 				thisCount.day = parseInt(args[i+1]);
@@ -878,6 +880,7 @@ function caTrLoadUnsentCounts() {
 				thisCount.h22 = parseInt(args[i+26]);
 				thisCount.h23 = parseInt(args[i+27]);
 				thisCount.station = args[i+28];
+				thisCount.lpns = args[i+29];
 				caTrUnsentCounts.push(thisCount);
 			}
 		}
@@ -1199,6 +1202,7 @@ function UnsentCountsObject() {
 	this.h22 = 0;
 	this.h23 = 0;
 	this.station = caTrStationName;
+	this.lpns = "";
 	return this;
 }
 //#endregion
