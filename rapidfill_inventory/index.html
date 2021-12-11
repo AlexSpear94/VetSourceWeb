@@ -112,6 +112,8 @@ function initPage(){
 	tableInputs = new Array();
 	isWaitingOnNetwork = false;
 
+	currentHash = "";
+
 	elementSubTitle = document.getElementById("subTitle");
 	elementSubTitleTextNode = elementSubTitle.childNodes[0];
 
@@ -119,6 +121,7 @@ function initPage(){
 	elementOverlayTextNode = document.getElementById("overlayText").childNodes[0];
 	elementOverlayButton = document.getElementById("buttonOverlay");
 
+	window.addEventListener("hashchange", onHashChange, false);
 	loadDataFromSheet();
 }
 
@@ -207,10 +210,14 @@ function loadPage(page){
 	currentPage = page;
 	switch (currentPage){
 	case 0://Main Menu
+		currentHash = "";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		setSubtitle(false, null);
 		document.getElementById("divMainMenuButtons").style.display = "initial";
 		break;
 	case 1://New Round
+		currentHash = "#inputround";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildPickTable();
 		setSubtitle(true, "Input Round");
 		document.getElementById("divPickTable").style.display = "initial";
@@ -218,6 +225,8 @@ function loadPage(page){
 		document.getElementById("divFooterButtons").style.display = "block";
 		break;
 	case 2://Bin Replenishment
+		currentHash = "#binreplenish";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildBinTable();
 		setSubtitle(true, "Bin Replenishment");
 		document.getElementById("divBinTable").style.display = "initial";
@@ -225,12 +234,16 @@ function loadPage(page){
 		document.getElementById("divFooterButtons").style.display = "block";
 		break;
 	case 3://View Inventory
+		currentHash = "#viewinventory";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildInventoryTable();
 		setSubtitle(true, "Viewing Inventory");
 		document.getElementById("divInventoryTable").style.display = "initial";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		break;
 	case 4://Cycle Count
+		currentHash = "#cyclecount";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildCycleCountTable();
 		setSubtitle(true, "Cycle Count");
 		document.getElementById("divCycleCountTable").style.display = "initial";
@@ -238,6 +251,8 @@ function loadPage(page){
 		document.getElementById("divFooterButtons").style.display = "block";
 		break;
 	case 5://Edit Products
+		currentHash = "#editproducts";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildEditProductsTable();
 		setSubtitle(true, "Editing Products");
 		document.getElementById("divEditProductsTable").style.display = "initial";
@@ -245,6 +260,8 @@ function loadPage(page){
 		document.getElementById("buttonAddProduct").style.display = "inline";
 		break;
 	case 6://Edit Single Product
+		currentHash = "#editproduct";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildEditSingleProductTable();
 		setSubtitle(true, "Editing a Product");
 		document.getElementById("divEditSingleProduct").style.display = "initial";
@@ -253,12 +270,16 @@ function loadPage(page){
 		document.getElementById("buttonCancel").style.display = "inline";
 		break;
 	case 7://View Previous Round
+		currentHash = "#viewpreviousround";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildPreviousRoundTable();
 		setSubtitle(true, "Viewing Previous Round");
 		document.getElementById("divPreviousRound").style.display = "initial";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		break;
-	case 8://Edit Single Product
+	case 8://Add New Product
+		currentHash = "#addproduct";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildAddProductTable();
 		setSubtitle(true, "Adding a new Product");
 		document.getElementById("divAddProduct").style.display = "initial";
@@ -268,6 +289,42 @@ function loadPage(page){
 		break;
 	}
 	isPageLoaded = true;
+}
+
+//Callback function to detect when the browser navigation buttons have been pressed, and loads page accordingly.
+function onHashChange(){
+	if (window.location.hash != currentHash && !isWaitingOnNetwork) {
+		switch (window.location.hash){
+		case "":
+		case "#":
+			loadPage(0);
+			break;
+		case "#inputround":
+			loadPage(1);
+			break;
+		case "#binreplenish":
+			loadPage(2);
+			break;
+		case "#viewinventory":
+			loadPage(3);
+			break;
+		case "#cyclecount":
+			loadPage(4);
+			break;
+		case "#editproducts":
+			loadPage(5);
+			break;
+		case "#editproduct":
+			loadPage(6);
+			break;
+		case "#viewpreviousround":
+			loadPage(7);
+			break;
+		case "#addproduct":
+			loadPage(8);
+			break;
+		}
+	}
 }
 
 function setSubtitle(visible, text){
