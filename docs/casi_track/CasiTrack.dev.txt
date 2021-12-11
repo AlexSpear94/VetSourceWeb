@@ -1,0 +1,1209 @@
+// ==UserScript==
+// @name           CasiTrack
+// @description    Track ship numbers at Casi Stations
+// @author         Alex Spear
+// @include        http://casi-vetsource:7000/*
+// @version        0.4.0 Dev
+// ==/UserScript==
+
+caTrInit();
+
+//#region Page Initialization
+//Main Init Function.
+function caTrInit(){
+	//Setup Globals
+	caTrVersion = "0.4.0 Dev";
+	caTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
+	caTrDomain = "http://casi-vetsource:7000";
+	
+	caTrStationName = "casi";
+	//caTrStationName = "hotseat";
+	
+	caTrEnablePosting = true;
+	caTrEnableShipping = true;
+	caTrEnablePicking = true;
+	caTrEnableAutoAdvanceBelt = false;
+	caTrDebugMode = true;
+	
+	let choseFunction = false;
+	//If page is Triage, setup Triage screen.
+	if (caTrEnableShipping && (window.location.href == caTrDomain + '/GV_EXEC?data=10442' || window.location.href == caTrDomain + '/GV_EXEC/ActionButton')){
+		caTrInitTriage();
+		choseFunction = true;
+	}
+	else if (window.location.href == caTrDomain + '/GV_EXEC?data=10426'){
+		if (caTrEnablePicking){
+			caTrInitPicking();
+			choseFunction = true;
+		}
+	}
+	if (!choseFunction && caTrEnablePosting) caTrInitPosting();
+}
+
+//Function for setting up the Picking screen.
+function caTrInitPicking(){
+	caTrPersonalData = new Array();
+	caTrPickGoal = -1;
+	caTrZone = '';
+	caTrLPN = '';
+	caTrUsername = '';
+	
+	//Find main header div.
+	caTrDivMain = document.getElementsByClassName("container body-content")[0];
+	
+	//Load cookies.
+	caTrPersonalDataLoadAll(true);
+	caTrLoadZone();
+	
+	//Figure out the goal for the zone.
+	caTrGetZoneGoal();
+	
+	//Read the status message on top of the page. Different actions are taken depending on the message.
+	caTrReadPickStatusMessage();
+
+	//Reset the hour count if the hour has changed.
+	let personal = caTrPersonalDataFindActive();
+	let d = new Date();
+	let pd = new Date(personal.loginTick);
+	if (d.getHours() != pd.getHours()) caTrPersonalDataResetHour();
+	
+	//Add the label which shows the pick count and goal.
+	caTrAddPickCountLabel();
+}
+
+//Function for setting up the Triage screen, generally for whichever state the Triage screen is in.
+function caTrInitTriage(){
+	caTrDoAutoship = true;
+	caTrDoAutoAdvanceBelt = 0;//0 = OFF, 1 = After Ready, 2 = Timer
+	caTrUnsentCounts = new Array();
+	caTrPersonalData = new Array();
+	caTrShipTimes = new Array();
+	caTrLPN = '';
+	caTrUsername = '';
+	
+	//Find the username. If this fails, just abort.
+	if (!caTrFindUsernameOnPage()) return;
+	
+	//Load cookies.
+	caTrLoadUnsentCounts();
+	caTrLoadShipTimes();
+	caTrPersonalDataLoadAll();
+	
+	//Create Toggle Auto Ready To Ship button.
+	caTrCreateAutoShipToggleButton();
+	
+	//Create Toggle Auto Advance Belt button.
+	if (caTrEnableAutoAdvanceBelt) caTrCreateAutoAdvanceToggleButton();
+
+	//Reset the hour count if the hour has changed.
+	let personal = caTrPersonalDataFindActive();
+	let d = new Date();
+	let pd = new Date(personal.loginTick);
+	if (d.getHours() != pd.getHours()) caTrPersonalDataResetHour();
+	
+	//Find the LPN. If this fails, we are on the main Triage Screen. Else, we are in a page for a LPN.
+	if (caTrFindLPNOnPage()) caTrInitTriageLPN();
+	else caTrInitTriageMain();
+	
+	//Create the label that shows the Hourly Count.
+	caTrAddCountLabel();
+	
+	//Add flash alert to LPN input.
+	caTrAddTimedAlertToLPNInput();
+}
+
+//Function for setting up posting functionality on a page where nothing else will happen.
+function caTrInitPosting(){
+	caTrUnsentCounts = new Array();
+	caTrRecentPost = -1;
+	caTrPostRequest = null;
+	
+	//Load cookies.
+	caTrLoadUnsentCounts();
+	caTrLoadPostRequest();
+	caTrLoadRecentPost();
+	
+	caTrDoInitialPost();
+}
+
+//Function for setting up Triage screen specifics for the main page.
+function caTrInitTriageMain(){
+	caTrRecentPost = -1;
+	caTrPostRequest = null;
+	
+	//Load cookies.
+	caTrLoadPostRequest();
+	caTrLoadRecentPost();
+	
+	caTrDoInitialPost();
+}
+
+//Function for setting up Triage screen specifics for an LPN page.
+function caTrInitTriageLPN(){
+	caTrRecentLPNArray = new Array();
+	caTrClickedReadyToShip = false;
+	
+	//Add event to Ready To Ship button.
+	caTrButtonReadyToShip = document.getElementById('1025');
+	if (caTrButtonReadyToShip == null) return; //No Ready to Ship button present, order likely not available.
+	caTrButtonReadyToShip.addEventListener('click',caTrOnReadyToShip);
+	document.getElementById('1024').addEventListener('click',caTrOnReadyToPick);//Ready to Pick button
+	document.getElementById('1042').addEventListener('click',caTrOnReadyToPick);//Ready to Pack button
+	
+	//Load cookies.
+	caTrLoadRecentLPNs();
+	
+	//Debug Button
+	if (typeof caTrDebugMode !== 'undefined'){
+		//Add Debug Ready To Ship Button
+		caTrButtonFakeReadyShip = document.createElement('button');
+		caTrButtonFakeReadyShip.className = 'ButtonSmall';
+		caTrButtonFakeReadyShip.style.backgroundColor = '#FF0000';
+		caTrButtonFakeReadyShip.style.color = '#000000';
+		caTrButtonFakeReadyShip.style.marginRight = '5px';
+		caTrButtonFakeReadyShip.style.marginBottom = '5px';
+		caTrButtonFakeReadyShip.appendChild(document.createTextNode('Debug Ready to Ship'));
+		caTrButtonFakeReadyShip.addEventListener('click',caTrOnReadyToShip);
+		caTrDivMain.insertBefore(caTrButtonFakeReadyShip,caTrButtonReadyToShip);
+	}
+	
+	//Do the Auto Ready To Ship.
+	if (caTrDoAutoship) caTrDoAutoReadyToShip();
+}
+//#endregion
+
+//#region Finding Elements
+//Finds the LPN on the page. Returns true if successful, and false if it fails.
+function caTrFindLPNOnPage(){
+	try{
+		caTrDivMain = document.getElementsByClassName("container body-content")[0];
+		caTrDiv2 = caTrDivMain.getElementsByTagName("div")[4];
+		let maintable = caTrDiv2.getElementsByClassName("TABLE")[0];
+		let tablerow = maintable.getElementsByTagName("tr")[1];
+		let lpnElement = tablerow.getElementsByTagName("td")[2];
+		caTrLPN = lpnElement.innerHTML;
+		return true;
+	}
+	catch(e){
+		console.log("Failed to find LPN.");
+		//console.log(e);
+		return false;
+	}
+}
+
+//Finds the LPN on the page. Returns true if successful, and false if it fails.
+function caTrFindUsernameOnPage(){
+	try{
+		caTrDivHeader = document.getElementsByClassName("navbar-header")[0];
+		let usernameElement = caTrDivHeader.getElementsByTagName("td")[1];
+		caTrUsername = usernameElement.innerHTML.toLowerCase().replaceAll(" ","").replaceAll("\n","");
+		return true;
+	}
+	catch(e){
+		console.log("Failed to find username.");
+		//console.log(e);
+		return false;
+	}
+}
+
+//Reads the page to figure out the zone, and goal for picking.
+function caTrGetZoneGoal(){
+	try{
+		let str = caTrDivMain.children[1].children[4].innerText;
+		console.log(str);
+		str = str.slice(10, str.search(";"));
+		console.log(str);
+		caTrZone = str;
+		caTrPickGoal = caTrGoalFromZone(caTrZone);
+		caTrSaveZone();
+	}
+	catch(e){
+		console.log('Zone not found.');
+		return false;
+	}
+}
+//#endregion
+
+//Function that does a post to google sheets, called when the page loads.
+function caTrDoInitialPost(){
+	let millisToPost = caTrRecentPost + (1000*60*10) - Date.now();
+	
+	if (caTrEnablePosting){
+		//Post unsent counts if 10 minutes have passed since last post.
+		if (millisToPost <= 0) caTrDoCountsPost();
+		else{
+			console.log("Last post within 10 minutes, not posting yet.");
+			//Do the post in this amount of time if the page doesn't change.
+			window.setTimeout(caTrDoCountsPost,millisToPost);
+		}
+	}
+}
+
+//Function to add an alert to the LPN input when scanning, if the page doesn't load in 3 seconds.
+function caTrAddTimedAlertToLPNInput(){
+	caTrInputLPN = document.getElementById("LPN");
+	caTrInputLPN.addEventListener("change", (event) => {
+		window.setTimeout(caTrDoScreenAlert,3*1000);
+	});
+}
+
+//Create and append the Auto Ready To Ship button to the page.
+function caTrCreateAutoShipToggleButton(){
+	let toolbar = document.getElementById('1098').parentElement;
+	
+	caTrButtonAutoShipToggle = document.createElement('button');
+	caTrButtonAutoShipToggle.className = 'ButtonSmall';
+	caTrButtonAutoShipToggle.style.color = '#000000';
+	caTrButtonAutoShipToggle.addEventListener('click',caTrOnButtonAutoShipToggleClick);
+	toolbar.insertBefore(caTrButtonAutoShipToggle,toolbar.children[3]);
+	
+	caTrButtonAutoShipToggleText = document.createTextNode('');
+	caTrButtonAutoShipToggle.appendChild(caTrButtonAutoShipToggleText);
+	
+	caTrLoadAutoShipStatus();
+	caTrSetAutoShipStatus(caTrDoAutoship);
+}
+
+//Create and append the Auto Advance Belt button to the page.
+function caTrCreateAutoAdvanceToggleButton(){
+	caTrAutoAdvanceBeltInterval = -1;
+	
+	let toolbar = document.getElementById('1098').parentElement;
+	
+	caTrButtonAutoAdvanceToggle = document.createElement('button');
+	caTrButtonAutoAdvanceToggle.className = 'ButtonSmall';
+	caTrButtonAutoAdvanceToggle.style.color = '#000000';
+	caTrButtonAutoAdvanceToggle.addEventListener('click',caTrOnButtonAutoAdvanceToggleClick);
+	toolbar.insertBefore(caTrButtonAutoAdvanceToggle,toolbar.children[3]);
+	
+	caTrButtonAutoAdvanceToggleText = document.createTextNode('');
+	caTrButtonAutoAdvanceToggle.appendChild(caTrButtonAutoAdvanceToggleText);
+	
+	caTrLoadAdvanceBeltCommand();
+	caTrLoadAutoAdvanceStatus();
+	caTrRefreshAutoAdvanceStatus();
+}
+
+//Update the variable and button of AutoShip.
+function caTrSetAutoShipStatus(autoship){
+	caTrDoAutoship = autoship;
+	if (caTrDoAutoship){
+		caTrButtonAutoShipToggle.style.backgroundColor = '#00FF00';
+		caTrButtonAutoShipToggleText.textContent = 'Auto Ready To Ship ON';
+	}
+	else{
+		caTrButtonAutoShipToggle.style.backgroundColor = '#FF0000';
+		caTrButtonAutoShipToggleText.textContent = 'Auto Ready To Ship OFF';
+	}
+}
+
+//Update the variable and button of Auto Advance Belt.
+function caTrRefreshAutoAdvanceStatus(){
+	switch (caTrDoAutoAdvanceBelt){
+	case 0:
+		caTrButtonAutoAdvanceToggle.style.backgroundColor = '#FF0000';
+		caTrButtonAutoAdvanceToggleText.textContent = 'Auto Advance Belt OFF';
+		if (caTrAutoAdvanceBeltInterval != -1){
+			clearInterval(caTrAutoAdvanceBeltInterval);
+			caTrAutoAdvanceBeltInterval = -1;
+		}
+		break;
+	case 1:
+		caTrButtonAutoAdvanceToggle.style.backgroundColor = '#00FF00';
+		caTrButtonAutoAdvanceToggleText.textContent = 'Auto Advance Belt AFTER READY';
+		break;
+	case 2:
+		caTrButtonAutoAdvanceToggle.style.backgroundColor = '#00FF00';
+		caTrButtonAutoAdvanceToggleText.textContent = 'Auto Advance Belt TIMER';
+		caTrAutoAdvanceBeltInterval = setInterval(caTrClickAdvanceBelt, 2000);
+		break;
+	}
+}
+
+//Create the Label which shows the Hourly Ship Count, and append it to the page.
+function caTrAddCountLabel(){
+	caTrLabelhourCount = document.createElement('div');
+	caTrLabelhourCount.style.marginTop = '10px';
+	
+	let shipSpeed = '';
+	if (caTrShipTimes.length > 1){
+		let time = 60 / (((caTrShipTimes[caTrShipTimes.length-1] - caTrShipTimes[0]) / 1000) / (caTrShipTimes.length - 1));
+		time = Math.round(time*10) / 10;
+		shipSpeed = ', Average per minute (last 10): ' + time;
+		if ((time % 1) == 0) shipSpeed += '.0';
+	}
+	
+	let hourSpeed = '';
+	let hourProjection = '';
+	let personal = caTrPersonalDataFindActive();
+
+	if (personal.countSinceLogin > 0){
+		//Calculate shipping speed and hourly projection
+		//Figure out related Date Times
+		let minutesSinceLogin = (Date.now() -  personal.loginTick) / 60000;
+		let nextHour = new Date(Date.now() + 1000*60*60);
+		nextHour.setMinutes(0);
+		nextHour.setSeconds(0);
+		nextHour.setMilliseconds(0);
+		let minutesUntilNextHour = (nextHour.getTime() - Date.now()) / 60000;
+
+		let avgCountOverHour = personal.countSinceLogin / minutesSinceLogin;
+		let hourProjectionNum = Math.round(personal.hourCount + (minutesUntilNextHour * avgCountOverHour));
+
+		avgCountOverHour = Math.round(avgCountOverHour*10) / 10;
+		if ((avgCountOverHour % 1) == 0) avgCountOverHour = avgCountOverHour + ".0";
+		hourSpeed = ", Average per minute (this hour): " + avgCountOverHour;
+
+		hourProjection = ", Hour Projection: " + hourProjectionNum;
+	}
+	
+	caTrLabelhourCount.appendChild(document.createTextNode('Shipped this hour: ' + personal.hourCount + shipSpeed + hourSpeed + hourProjection));
+	caTrDivMain.insertBefore(caTrLabelhourCount, caTrDivMain.children[0]);
+}
+
+//Create the Label which shows the Hourly Pick Count, and append it to the page.
+function caTrAddPickCountLabel(){
+	let personal = caTrPersonalDataFindActive();
+	let str = 'This Station -  Picked this hour: ' + personal.hourCount;
+	if (caTrPickGoal > 0) str += ', Goal (full hour): ' + caTrPickGoal;
+
+	caTrLabelhourCount = document.createElement('div');
+	caTrLabelhourCount.style.marginTop = '10px';
+	caTrLabelhourCount.appendChild(document.createTextNode(str));
+	caTrDivMain.insertBefore(caTrLabelhourCount, caTrDivMain.children[0]);
+}
+
+//Reads the status message on the Pick screen and acts accordingly.
+function caTrReadPickStatusMessage(){
+	try{
+		let str = caTrDivMain.children[1].children[0].innerText;
+		console.log('message text: ' + str);
+		if (str.search("Picking is") != -1){
+			let pos = str.search("LPN:");
+			caTrLPN = str.slice(pos+4,pos+11);
+			console.log('lpn: ' + caTrLPN);
+
+			//If this LPN was not used recently.
+			if (!caTrWasLPNShippedRecently(caTrLPN)){
+				//Increment Counts.
+				caTrPersonalDataAddCount();
+
+				//Add this LPN to the recent list.
+				caTrAddLPNToRecentList(caTrLPN);
+			}
+
+			//Save the Counts.
+			caTrPersonalDataSaveAll(true);
+		}
+	}
+	catch(e){
+		return false;
+	}
+}
+
+//Returns the number for the goal from the given zone string.
+function caTrGoalFromZone(zone){
+	switch (zone){
+		case 'CP':
+			return 0;
+		case 'Z CC1':
+			return 0;
+		case 'Z CC2':
+			return 0;
+		case 'Z CC3':
+			return 0;
+		case 'Z CC4':
+			return 0;
+		case 'Z OTC':
+			return 0;
+		case 'Z 1B':
+			return 0;
+		case 'Z AA':
+			return 0;
+		case 'Z 1A':
+			return 0;
+		case 'Z 2':
+			return 0;
+		case 'Z 3':
+			return 0;
+		case 'Z BC':
+			return 0;
+		case 'Z 4':
+			return 0;
+		case 'Z 5':
+			return 0;
+		case 'Z DE':
+			return 0;
+		case 'Z 6':
+			return 0;
+		case 'Z 7':
+			return 0;
+		case 'Z FG':
+			return 0;
+		case 'Z 8':
+			return 0;
+		case 'Z 9':
+			return 0;
+		case 'Z BS':
+			return 0;
+	}
+}
+
+//Function performed at page load if Auto Ready to Ship is enabled.
+function caTrDoAutoReadyToShip(){
+	if (caTrHasTriageException()){
+		console.log('Exception Found. Not doing Auto Ready To Ship.');
+		caTrDoScreenAlert();
+		return;
+	}
+	if (typeof caTrDebugMode !== 'undefined'){
+		caTrButtonFakeReadyShip.click();
+	}
+	else{
+		caTrButtonReadyToShip.click();
+	}
+}
+
+//Function used to start doing a flashing background screen alert to get the attention of the user.
+function caTrDoScreenAlert(){
+	caTrScreenAlertCount = 0;
+	setTimeout(caTrScreenAlertToggle,300);
+}
+
+//Function used on a timer during DoScreenAlert.
+function caTrScreenAlertToggle(){
+	caTrScreenAlertCount++;
+	if (caTrScreenAlertCount % 2 == 0) document.body.style.background = 'white';
+	else document.body.style.background = 'yellow';
+	if (caTrScreenAlertCount < 6) setTimeout(caTrScreenAlertToggle,300);
+}
+
+//Checks if the Triage screen has an exception table.
+function caTrHasTriageException(){
+	let errorList = caTrDivMain.getElementsByClassName("Error");
+	if (errorList.length >= 1) return true;
+	return false;
+}
+
+//Checks if an LPN is in the recently shipped list.
+function caTrWasLPNShippedRecently(lpn){
+	for (let i = 0; i < caTrRecentLPNArray.length; ++i){
+		if (lpn == caTrRecentLPNArray[i]) return true;
+	}
+	return false;
+}
+
+//Add a new LPN to the recently shipped list.
+function caTrAddLPNToRecentList(lpn){
+	//Remove the first element in the list if it is already at capacity.
+	if (caTrRecentLPNArray.length > 9){
+		caTrRecentLPNArray.splice(0,1);
+	}
+	caTrRecentLPNArray.push(lpn);
+	caTrSaveRecentLPNs();
+}
+
+//Fnuction for clicking the advance belt button.
+function caTrClickAdvanceBelt(){
+	if (typeof caTrDebugMode !== 'undefined'){
+		console.log("Advance belt click!");
+		//location.reload();
+	}
+	else {
+		document.getElementById('1098').click();//Click the advance belt button.
+	}
+}
+
+//Function for getting the average from an array
+function caTrGetArrayAverage(a) {
+	if (a.length <= 0) return 0;
+	var sum = 0;
+	a.forEach(function(item, index, array) {
+		sum += item;
+	})
+	sum /= a.length;
+	return sum;
+}
+
+//Function to add 1 to the unsent count at the current time for the current user
+function caTrAddUnsentCount(){
+	const d = new Date();
+	let match = -1;
+	//Skip 1st entry in list if it is being posted. May result in duplicate, but that's ok.
+	for (var i = 0; i < caTrUnsentCounts.length; i++){
+		if (caTrUnsentCounts[i].username != caTrUsername) continue;
+		if (caTrUnsentCounts[i].day != d.getDate()) continue;
+		if (caTrUnsentCounts[i].month != d.getMonth() + 1) continue;
+		if (caTrUnsentCounts[i].year != d.getYear() + 1900) continue;
+		match = i;
+		break;
+	}
+	if (match == -1){
+		//Create new Unsent Count entry
+		var thisCount = new UnsentCountsObject();
+		thisCount.username = caTrUsername;
+		thisCount.day = d.getDate();
+		thisCount.month = d.getMonth() + 1;
+		thisCount.year = d.getYear() + 1900;
+		caTrUnsentCounts.push(thisCount);
+		match = caTrUnsentCounts.length - 1;
+	}
+	//Append to existing Unsent Count Entry
+	switch (d.getHours()){
+		case 0:
+			caTrUnsentCounts[match].h0++;
+			break;
+		case 1:
+			caTrUnsentCounts[match].h1++;
+			break;    
+		case 2:       
+			caTrUnsentCounts[match].h2++;
+			break;    
+		case 3:       
+			caTrUnsentCounts[match].h3++;
+			break;    
+		case 4:       
+			caTrUnsentCounts[match].h4++;
+			break;    
+		case 5:       
+			caTrUnsentCounts[match].h5++;
+			break;    
+		case 6:       
+			caTrUnsentCounts[match].h6++;
+			break;    
+		case 7:       
+			caTrUnsentCounts[match].h7++;
+			break;    
+		case 8:       
+			caTrUnsentCounts[match].h8++;
+			break;    
+		case 9:       
+			caTrUnsentCounts[match].h9++;
+			break;    
+		case 10:      
+			caTrUnsentCounts[match].h10++;
+			break;    
+		case 11:      
+			caTrUnsentCounts[match].h11++;
+			break;    
+		case 12:      
+			caTrUnsentCounts[match].h12++;
+			break;    
+		case 13:      
+			caTrUnsentCounts[match].h13++;
+			break;    
+		case 14:      
+			caTrUnsentCounts[match].h14++;
+			break;    
+		case 15:      
+			caTrUnsentCounts[match].h15++;
+			break;    
+		case 16:      
+			caTrUnsentCounts[match].h16++;
+			break;    
+		case 17:      
+			caTrUnsentCounts[match].h17++;
+			break;    
+		case 18:      
+			caTrUnsentCounts[match].h18++;
+			break;    
+		case 19:      
+			caTrUnsentCounts[match].h19++;
+			break;    
+		case 20:      
+			caTrUnsentCounts[match].h20++;
+			break;    
+		case 21:      
+			caTrUnsentCounts[match].h21++;
+			break;    
+		case 22:      
+			caTrUnsentCounts[match].h22++;
+			break;    
+		case 23:      
+			caTrUnsentCounts[match].h23++;
+			break;
+	}
+	caTrUnsentCounts[match].lpns += caTrLPN + '+';
+}
+
+//Function for creating a new post request, if there are counts to send.
+function caTrCreateNewPostRequest(){
+	if (caTrUnsentCounts.length <= 0){
+		console.log("No counts to post.");
+		return false;
+	}
+	
+	caTrPostRequest = {"postType":"PostCounts","entries":[],"postID":(Math.floor(Math.random() * 16777216)),"postTime":(Date.now())};
+	
+	for (let i = 0; i < caTrUnsentCounts.length; i++){
+		caTrPostRequest.entries.push(caTrUnsentCounts[i]);
+	}
+	
+	caTrUnsentCounts.length = 0;
+	caTrSaveUnsentCounts();
+	caTrSavePostRequest();
+	
+	return true;
+}
+
+//Function to send the current post request to Google Sheet.
+function caTrSendPostRequest(){
+	console.log("Posting counts...");
+	
+	var xhr = new XMLHttpRequest();
+	xhr.open("post", caTrGoogleSheetURL, true);
+	xhr.setRequestHeader('Content-Type', 'text/plain');
+	xhr.onload = caTrPostResponse;
+	xhr.send(JSON.stringify(caTrPostRequest));
+}
+
+//Main function to post counts to Google Sheet.
+function caTrDoCountsPost(){
+	if (caTrPostRequest != null){
+		caTrSendPostRequest();
+		return;
+	}
+	if (caTrCreateNewPostRequest()) caTrSendPostRequest();
+}
+
+//#region Event Handlers
+//Callback function for clicking the Toggle Auto Ready To Ship button.
+function caTrOnButtonAutoShipToggleClick(){
+	caTrSetAutoShipStatus(!caTrDoAutoship);
+	caTrSaveAutoShipStatus();
+	caTrInputLPN.focus();
+}
+
+//Callback function for clicking the Toggle Auto Advance Belt button.
+function caTrOnButtonAutoAdvanceToggleClick(){
+	caTrDoAutoAdvanceBelt++;
+	if (caTrDoAutoAdvanceBelt > 2) caTrDoAutoAdvanceBelt = 0;
+	caTrRefreshAutoAdvanceStatus();
+	caTrSaveAutoAdvanceStatus();
+	caTrInputLPN.focus();
+}
+
+//Callback function for when the Ready To Ship button is pressed.
+function caTrOnReadyToShip(){
+	if (caTrClickedReadyToShip) return;
+	caTrClickedReadyToShip = true;
+	
+	//Click advance belt button if turned on.
+	if (caTrDoAutoAdvanceBelt == 1) caTrSaveAdvanceBeltCommand('instant');
+	
+	//If this LPN was not shipped recently.
+	if (!caTrWasLPNShippedRecently(caTrLPN)){
+		//Increment Counts.
+		caTrAddUnsentCount();
+		caTrPersonalDataAddCount();
+		caTrShipTimes.push(Date.now());
+		if (caTrShipTimes.length > 11) caTrShipTimes.shift();
+		
+		//Add this LPN to the recent list.
+		caTrAddLPNToRecentList(caTrLPN);
+	}
+	
+	//Save the Counts.
+	caTrSaveUnsentCounts();
+	caTrSaveShipTimes();
+	caTrPersonalDataSaveAll();
+	
+	//Do a screen flash if page doesn't load in 3 seconds.
+	window.setTimeout(caTrDoScreenAlert,3*1000);
+	
+	//Change page if debug mode.
+	//if (typeof caTrDebugMode !== 'undefined') window.history.back();
+}
+
+//Callback function for when the Ready To Pick or Pack button is pressed.
+function caTrOnReadyToPick(){
+	//Click advance belt button if turned on.
+	if (caTrDoAutoAdvanceBelt == 1) caTrSaveAdvanceBeltCommand('instant');
+}
+
+//#region Network
+//Callback function for request to post counts to Google Sheet
+function caTrPostResponse(){
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Post successful.');
+			caTrPostRequest = null;
+			caTrSavePostRequest();
+			caTrSaveRecentPost();
+		}
+	}
+	catch (e){
+		console.log('Post unsuccessful: ' + this.responseText);
+	}
+}
+//#endregion
+//#endregion
+
+//#region Personal Data
+//Function for creating a new Personal Data object with the current active username.
+function caTrPersonalDataCreateNew(){
+	let person = new PersonalData();
+	person.username = caTrUsername;
+	person.loginTick = Date.now();
+	caTrPersonalData.push(person);
+	return person;
+}
+
+//Function for finding and returning the active Personal Data object, creating it if it doesn't exist.
+function caTrPersonalDataFindActive(){
+	for (let i = 0; i < caTrPersonalData.length; i++){
+		if (caTrPersonalData[i].username == caTrUsername) return caTrPersonalData[i];
+	}
+	return caTrPersonalDataCreateNew();
+}
+
+//Use this function to reset the personal data counts after an hour passes.
+function caTrPersonalDataResetHour(){
+	let d = new Date();
+	d.setMinutes(0);
+	d.setSeconds(0);
+	d.setMilliseconds(0);
+	
+	for (let i = 0; i < caTrPersonalData.length; i++){
+		caTrPersonalData[i].loginTick = d.getTime();
+		caTrPersonalData[i].countSinceLogin = 0;
+		caTrPersonalData[i].hourCount = 0;
+	}
+}
+
+//Use this function to add 1 to the personal data count.
+function caTrPersonalDataAddCount(){
+	let person = caTrPersonalDataFindActive();
+	person.hourCount++;
+	person.countSinceLogin++;
+}
+//#endregion
+
+//#region Cookies
+//Function for loading a cookie from the current webpage with the given name
+function caTrGetCookie(cname) {
+	let name = cname + "=";
+	let decodedCookie = decodeURIComponent(document.cookie);
+	let ca = decodedCookie.split(';');
+	for(let i = 0; i <ca.length; i++) {
+	let c = ca[i];
+	while (c.charAt(0) == ' ') {
+		c = c.substring(1);
+	}
+	if (c.indexOf(name) == 0) {
+		return c.substring(name.length, c.length);
+	}
+	}
+	return "";
+}
+
+//Function for saving the unsent counts to cookies.
+function caTrSaveUnsentCounts() {
+	//Compute cookie expiry time for 5 years, and cookie name
+	const d = new Date();
+	let cname = 'CaTrUCs';
+	d.setTime(d.getTime() + (5*365*24*60*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	let cstring = "";
+	for (let i = 0; i < caTrUnsentCounts.length; ++i){
+		cstring += caTrUnsentCounts[i].username + ',';
+		cstring += caTrUnsentCounts[i].day + ',';
+		cstring += caTrUnsentCounts[i].month + ',';
+		cstring += caTrUnsentCounts[i].year + ',';
+		cstring += caTrUnsentCounts[i].h0 + ',';
+		cstring += caTrUnsentCounts[i].h1 + ',';
+		cstring += caTrUnsentCounts[i].h2 + ',';
+		cstring += caTrUnsentCounts[i].h3 + ',';
+		cstring += caTrUnsentCounts[i].h4 + ',';
+		cstring += caTrUnsentCounts[i].h5 + ',';
+		cstring += caTrUnsentCounts[i].h6 + ',';
+		cstring += caTrUnsentCounts[i].h7 + ',';
+		cstring += caTrUnsentCounts[i].h8 + ',';
+		cstring += caTrUnsentCounts[i].h9 + ',';
+		cstring += caTrUnsentCounts[i].h10 + ',';
+		cstring += caTrUnsentCounts[i].h11 + ',';
+		cstring += caTrUnsentCounts[i].h12 + ',';
+		cstring += caTrUnsentCounts[i].h13 + ',';
+		cstring += caTrUnsentCounts[i].h14 + ',';
+		cstring += caTrUnsentCounts[i].h15 + ',';
+		cstring += caTrUnsentCounts[i].h16 + ',';
+		cstring += caTrUnsentCounts[i].h17 + ',';
+		cstring += caTrUnsentCounts[i].h18 + ',';
+		cstring += caTrUnsentCounts[i].h19 + ',';
+		cstring += caTrUnsentCounts[i].h20 + ',';
+		cstring += caTrUnsentCounts[i].h21 + ',';
+		cstring += caTrUnsentCounts[i].h22 + ',';
+		cstring += caTrUnsentCounts[i].h23 + ',';
+		cstring += caTrUnsentCounts[i].station + ',';
+		cstring += caTrUnsentCounts[i].lpns + ',';
+	}
+	
+	document.cookie = cname + '=' + cstring + ';' + expires + '; path=/';
+}
+//Function for loading the unsent counts from cookies.
+function caTrLoadUnsentCounts() {
+	caTrUnsentCounts = new Array(0);
+	try{
+		const d = new Date();
+		let c = caTrGetCookie('CaTrUCs');
+		if (c != ''){
+			let args = c.split(',');
+			for (let i = 0; i < args.length-29; i += 30){
+				var thisCount = new UnsentCountsObject();
+				thisCount.username = args[i];
+				thisCount.day = parseInt(args[i+1]);
+				thisCount.month = parseInt(args[i+2]);
+				thisCount.year = parseInt(args[i+3]);
+				thisCount.h0 = parseInt(args[i+4]);
+				thisCount.h1 = parseInt(args[i+5]);
+				thisCount.h2 = parseInt(args[i+6]);
+				thisCount.h3 = parseInt(args[i+7]);
+				thisCount.h4 = parseInt(args[i+8]);
+				thisCount.h5 = parseInt(args[i+9]);
+				thisCount.h6 = parseInt(args[i+10]);
+				thisCount.h7 = parseInt(args[i+11]);
+				thisCount.h8 = parseInt(args[i+12]);
+				thisCount.h9 = parseInt(args[i+13]);
+				thisCount.h10 = parseInt(args[i+14]);
+				thisCount.h11 = parseInt(args[i+15]);
+				thisCount.h12 = parseInt(args[i+16]);
+				thisCount.h13 = parseInt(args[i+17]);
+				thisCount.h14 = parseInt(args[i+18]);
+				thisCount.h15 = parseInt(args[i+19]);
+				thisCount.h16 = parseInt(args[i+20]);
+				thisCount.h17 = parseInt(args[i+21]);
+				thisCount.h18 = parseInt(args[i+22]);
+				thisCount.h19 = parseInt(args[i+23]);
+				thisCount.h20 = parseInt(args[i+24]);
+				thisCount.h21 = parseInt(args[i+25]);
+				thisCount.h22 = parseInt(args[i+26]);
+				thisCount.h23 = parseInt(args[i+27]);
+				thisCount.station = args[i+28];
+				thisCount.lpns = args[i+29];
+				caTrUnsentCounts.push(thisCount);
+			}
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading unsent ship counts from cookies.');
+	}
+}
+
+//Function for saving the ship times to cookies.
+function caTrSaveShipTimes() {
+	//Compute cookie expiry time for midnight, and cookie name
+	const d = new Date();
+	let cname = 'CaTrShipTimes';
+	d.setTime(d.getTime() + (24*60*60*1000));
+	d.setHours(0);
+	d.setMinutes(0);
+	let expires = 'expires='+ d.toUTCString();
+	
+	let cstring = "";
+	for (let i = 0; i < caTrShipTimes.length; ++i){
+		cstring += caTrShipTimes[i] + ',';
+	}
+	
+	document.cookie = cname + '=' + cstring + ';' + expires + '; path=/';
+}
+
+//Function for loading the ship times from cookies.
+function caTrLoadShipTimes() {
+	caTrShipTimes = new Array(0);
+	try{
+		const d = new Date();
+		let c = caTrGetCookie('CaTrShipTimes');
+		if (c != ''){
+			let args = c.split(',');
+			for (let i = 0; i < args.length; i++){
+				if (args[i] == '') continue;
+				caTrShipTimes.push(parseInt(args[i]));
+			}
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading ship times from cookies.');
+	}
+}
+
+//Function for saving that there was a recent post to cookies.
+function caTrSaveRecentPost() {
+	caTrRecentPost = Date.now();
+	//Compute cookie expiry time for 10 minutes from now, and cookie name
+	const d = new Date();
+	let cname = 'CaTrRecentPost';
+	d.setTime(d.getTime() + (10*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	document.cookie = cname + '=' + caTrRecentPost + ';' + expires + '; path=/';
+}
+
+//Function for loading if there was a recent post from cookies.
+function caTrLoadRecentPost() {
+	try{
+		let c = caTrGetCookie('CaTrRecentPost');
+		if (c != ''){
+			caTrRecentPost = parseInt(c);
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading last post time from cookies.');
+	}
+}
+
+//Function for saving the current zone to cookies.
+function caTrSaveZone() {
+	caTrRecentPost = Date.now();
+	//Compute cookie expiry time for 1 hour from now, and cookie name
+	const d = new Date();
+	let cname = 'CaTrZone';
+	d.setTime(d.getTime() + (60*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	document.cookie = cname + '=' + caTrZone + ';' + expires + '; path=/';
+}
+
+//Function for loading the current zone from cookies.
+function caTrLoadZone() {
+	try{
+		let c = caTrGetCookie('CaTrZone');
+		if (c != ''){
+			caTrZone = c;
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading zone from cookies.');
+	}
+}
+
+//Function for saving the current post request to cookies.
+function caTrSavePostRequest() {
+	//Compute cookie expiry time for 1 year from now, and cookie name
+	const d = new Date();
+	let cname = 'CaTrPostRequest';
+	d.setTime(d.getTime() + (365*24*60*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	document.cookie = cname + '=' + JSON.stringify(caTrPostRequest) + ';' + expires + '; path=/';
+}
+
+//Function for loading the current post request from cookies.
+function caTrLoadPostRequest() {
+	try{
+		let c = caTrGetCookie('CaTrPostRequest');
+		if (c != '' && c != 'null'){
+			caTrPostRequest = JSON.parse(c);
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading post request from cookies.');
+	}
+}
+
+//Function for saving if autoship is turned on.
+function caTrSaveAutoShipStatus() {
+	//Compute cookie expiry time for 1 year from now, and cookie name
+	const d = new Date();
+	let cname = 'CaTrAutoShip';
+	d.setTime(d.getTime() + (365*24*60*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	document.cookie = cname + '=' + (caTrDoAutoship ? "true" : "false") + ';' + expires + '; path=/';
+}
+
+//Function for loading if autoship is turned on.
+function caTrLoadAutoShipStatus() {
+	try{
+		let c = caTrGetCookie('CaTrAutoShip');
+		if (c != ''){
+			if (c == "true") caTrDoAutoship = true;
+			else caTrDoAutoship = false;
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading auto ship status from cookies.');
+	}
+}
+
+//Function for saving if auto advance belt is turned on.
+function caTrSaveAutoAdvanceStatus() {
+	//Compute cookie expiry time for 1 year from now, and cookie name
+	const d = new Date();
+	let cname = 'CaTrAutoAdvance';
+	d.setTime(d.getTime() + (365*24*60*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	document.cookie = cname + '=' + caTrDoAutoAdvanceBelt + ';' + expires + '; path=/';
+}
+
+//Function for loading if auto advance belt is turned on.
+function caTrLoadAutoAdvanceStatus() {
+	try{
+		let c = caTrGetCookie('CaTrAutoAdvance');
+		if (c != ''){
+			caTrDoAutoAdvanceBelt = parseInt(c);
+			if (Number.isNaN(caTrDoAutoAdvanceBelt)) caTrDoAutoAdvanceBelt = 0;
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading auto advance belt status from cookies.');
+	}
+}
+
+//Function for saving a command for advancing the belt on load.
+function caTrSaveAdvanceBeltCommand(command) {
+	//Compute cookie expiry time for 1 minute from now, and cookie name
+	const d = new Date();
+	let cname = 'CaTrAdvBltCmd';
+	d.setTime(d.getTime() + (60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	document.cookie = cname + '=' + command + ';' + expires + '; path=/';
+}
+
+//Function for loading an advance belt command and executing it.
+function caTrLoadAdvanceBeltCommand() {
+	try{
+		let c = caTrGetCookie('CaTrAdvBltCmd');
+		if (c != ''){
+			if (c == 'instant'){
+				caTrSaveAdvanceBeltCommand('');
+				caTrClickAdvanceBelt();
+			}
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading advance belt command cookie.');
+	}
+}
+
+//Function for saving the recent LPNs to cookies.
+function caTrSaveRecentLPNs() {
+	//Compute cookie expiry time for 1 day, and cookie name
+	const d = new Date();
+	let cname = 'CaTrRecentLPNs';
+	d.setTime(d.getTime() + (24*60*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	let cstring = "";
+	for (let i = 0; i < caTrRecentLPNArray.length; ++i){
+		cstring += caTrRecentLPNArray[i] + ',';
+	}
+	
+	document.cookie = cname + '=' + cstring + ';' + expires + '; path=/';
+}
+
+//Function for loading the recent LPN list.
+function caTrLoadRecentLPNs() {
+	caTrRecentLPNArray.length = 0;
+	try{
+		const d = new Date();
+		let c = caTrGetCookie('CaTrRecentLPNs');
+		if (c != ''){
+			let args = c.split(',');
+			for (let i = 0; i < args.length; i++){
+				if (args[i].length > 0) caTrRecentLPNArray.push(args[i]);
+			}
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading recent LPNs from cookies.');
+	}
+}
+
+//Use this function to save personal data to cookies.
+function caTrPersonalDataSaveAll(pick = false){
+	//Compute cookie expiry time for the end of this hour, and cookie name
+	const d = new Date();
+	let cname = 'CaTrPersonal';
+	if (pick) cname += 'Pick';
+	d.setTime(d.getTime() + (60*60*1000));
+	d.setMinutes(0);
+	d.setSeconds(0);
+	d.setMilliseconds(0);
+	let expires = 'expires='+ d.toUTCString();
+	
+	let cstring = JSON.stringify(caTrPersonalData);
+	
+	document.cookie = cname + '=' + cstring + ';' + expires + ';';
+}
+
+//Use this function to load personal data from cookies.
+function caTrPersonalDataLoadAll(pick = false){
+	try{
+		let c = caTrGetCookie('CaTrPersonal' + (pick ? 'Pick' : ''));
+		if (c != ''){
+			caTrPersonalData = JSON.parse(c);
+			
+			//Resets data that depends on staying logged in for other users that aren't logged in.
+			for (let i = 0; i < caTrPersonalData.length; i++){
+				if (caTrPersonalData[i].username != caTrUsername){
+					caTrPersonalData[i].loginTick = Date.now();
+					caTrPersonalData[i].countSinceLogin = 0;
+				}
+			}
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('CasiTrack: Error loading personal data from cookies.');
+	}
+}
+//#endregion
+
+//#region Constructors
+//Function for constructing a new Personal Data object.
+function PersonalData(){
+	this.username = '';
+	this.hourCount = 0;
+	this.loginTick = 0;
+	this.countSinceLogin = 0;
+	return this;
+}
+
+//Function for constructing a new Unsent Counts Object
+function UnsentCountsObject() {
+	this.username = "";
+	this.day = 0;
+	this.month = 0;
+	this.year = 0;
+	this.h0 = 0;
+	this.h1 = 0;
+	this.h2 = 0;
+	this.h3 = 0;
+	this.h4 = 0;
+	this.h5 = 0;
+	this.h6 = 0;
+	this.h7 = 0;
+	this.h8 = 0;
+	this.h9 = 0;
+	this.h10 = 0;
+	this.h11 = 0;
+	this.h12 = 0;
+	this.h13 = 0;
+	this.h14 = 0;
+	this.h15 = 0;
+	this.h16 = 0;
+	this.h17 = 0;
+	this.h18 = 0;
+	this.h19 = 0;
+	this.h20 = 0;
+	this.h21 = 0;
+	this.h22 = 0;
+	this.h23 = 0;
+	this.station = caTrStationName;
+	this.lpns = "";
+	return this;
+}
+//#endregion

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Shipping Metrics</title>
+<style>
+body{
+	background-color: black;
+	color: white;
+}
+h1{
+	color: white;
+}
+table.main_table{
+	display: table;
+	margin: 10px;
+	padding: 5px;
+	font-size: 18px;
+	text-align: center;
+}
+th, td{
+	min-width: 75px;
+	padding: 5px;
+}
+.cell_total{
+	color: orange;
+	font-weight: 800px;
+}
+.cell_grandtotal{
+	color: yellow;
+	font-weight: 800px;
+}
+.table_footer{
+	margin: 5px;
+}
+.button_small{
+	text-decoration-line: none;
+	margin: 5px;
+	padding: 5px;
+	border-color: #606060;
+	border-width: 2px;
+	border-style: ridge;
+	display: inline-block;
+	cursor: pointer;
+}
+</style>
+</head>
+<body onload="initPage()">
+<script>
+function initPage(){
+	_googleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
+	_locationName = "604";
+	
+	countsBeingRequested = false;
+	collapseStations = true;
+	loadedCountString = "";
+	refreshTimeout = setTimeout(refreshCountsFromGoogleSheet, 1000*60*10);
+	
+	span_key = document.getElementById('span_key');
+	
+	initTable();
+	refreshCountsFromGoogleSheet();
+}
+
+//Get references to the main table.
+function initTable(){
+	mainTable = document.getElementById('table_main_counts');
+	mainTableFooter = document.getElementById('table_footer');
+	mainTableRows = new Array(26);
+	for (let i = 0; i < 26; ++i){
+		mainTableRows[i] = document.getElementById('table_row_main_' + i);
+	}
+	mainTableCells = new Array(1);
+	mainTableCells[0] = new Array(26);
+	for (let i = 0; i < 26; ++i){
+		var cell = mainTableRows[i].childNodes[0];
+		mainTableCells[0][i] = cell;
+	}
+}
+
+//Function for making all the data cells of the table empty
+function clearTable() {
+	for (let i = 0; i < 26; ++i){
+		for (let j = 1; j < mainTableCells.length; ++j){
+			mainTableCells[j][i].innerHTML = "";
+		}
+	}
+}
+
+//Utility function for sorting table data.
+function sortSwitchDatas(data, index){
+	data.splice(index+1,0,data.splice(index,1)[0]);
+}
+
+//Utility function for sorting table data.
+function sortCompareStation(ldata, rdata){
+	let lvalue = 0;
+	let rvalue = 0;
+	switch (ldata.station){
+	case 'casi':
+		lvalue = 1;
+		break;
+	case 'hotseat':
+		lvalue = 2;
+		break;
+	}
+	switch (rdata.station){
+	case 'casi':
+		rvalue = 1;
+		break;
+	case 'hotseat':
+		rvalue = 2;
+		break;
+	}
+	return (lvalue > rvalue);
+}
+
+//Function for bubble sorting the table data by name.
+function sortDataByName(data){
+	if (data.length > 1){
+		for (let i = 0; i < data.length - 1; i++){
+			if (data[i].username > data[i+1].username){
+				sortSwitchDatas(data,i,i+1);
+				for (let j = i-1; j >= 0; j--){
+					if (data[j].username > data[j+1].username) sortSwitchDatas(data,j,j+1);
+				}
+			}
+		}
+	}
+}
+
+//Function for bubble sorting the table data by station.
+function sortDataByStation(data){
+	if (data.length > 1){
+		for (let i = 0; i < data.length - 1; i++){
+			if (sortCompareStation(data[i], data[i+1])){
+				sortSwitchDatas(data,i,i+1);
+				for (let j = i-1; j >= 0; j--){
+					if (sortCompareStation(data[j], data[j+1])) sortSwitchDatas(data,j,j+1);
+				}
+			}
+		}
+	}
+}
+
+//Function for combining data of the same username when building the table.
+function collapseDataByUsername(data){
+	for (let i = 0; i < data.length - 1; i++){
+		let name = data[i].username;
+		for (let j = i + 1; j < data.length; j++){
+			if (data[j].username == name){
+				for (let h = 0; h < 24; h++){
+					data[i]['h'+h] += data[j]['h'+h];
+				}
+				data.splice(j,1);
+				j--;
+			}
+		}
+	}
+}
+
+//Function for building the table with all users.
+function buildTable(data) {
+	clearTable();
+	
+	//Verify data is valid
+	if (data == 0) data = new Array(0);
+	
+	//Collapse similar username columns into a single column.
+	if (collapseStations) collapseDataByUsername(data);
+	else sortDataByStation(data);
+	sortDataByName(data);
+	
+	//Make new columns if needed
+	for (let i = mainTableCells.length; i < data.length + 2; ++i){
+		mainTableCells.push(new Array(26));
+		mainTableCells[i][0] = document.createElement('th');
+		mainTableRows[0].appendChild(mainTableCells[i][0]);
+		for (let j = 1; j < 26; ++j){
+			mainTableCells[i][j] = document.createElement('td');
+			mainTableRows[j].appendChild(mainTableCells[i][j]);
+		}
+		//Cell CSS
+		for (let j = 0; j < 26; ++j){
+			mainTableCells[i][j].style.padding = '5px';
+		}
+	}
+	
+	//Totals variables
+	let userTotals = new Array(data.length);
+	for (let i = 0; i < data.length; i++) {userTotals[i] = 0;}
+	let timeTotals = new Array(25);
+	for (let i = 0; i < 25; i++) {timeTotals[i] = 0;}
+	
+	//Itterate through cells and data
+	for (let i = 1; i < data.length + 1; ++i){
+		//Cell data.
+		mainTableCells[i][0].innerHTML = data[i-1].username;
+		for (let j = 1; j < 26; ++j){
+			let tc = 0;
+			if (j <= 24){
+				tc = data[i-1]['h' + (-j + 24)];
+			}
+			else{
+				tc = userTotals[i-1];
+			}
+			if (tc != undefined) if (tc > 0){
+				mainTableCells[i][j].innerHTML = tc;
+				if (j < 25) userTotals[i-1] += tc;
+				timeTotals[j-1] += tc;
+			}
+		}
+		//Cell CSS.
+		mainTableCells[i][0].className = "";
+		if (!collapseStations){
+			if (data[i-1].station == "casi") mainTableCells[i][0].className = 'cell_grandtotal';
+			if (data[i-1].station == "hotseat") mainTableCells[i][0].className = 'cell_total';
+		}
+		for (let j = 1; j < 25; ++j){
+			mainTableCells[i][j].className = "";
+		}
+		mainTableCells[i][25].className = 'cell_total'; 
+	}
+	let TCI = data.length + 1; //Totals Column Index
+	//Cell data.
+	mainTableCells[TCI][0].innerHTML = "Totals";
+	for (let j = 1; j < 26; ++j){
+		mainTableCells[TCI][j].innerHTML = timeTotals[j-1];
+	}
+	//Cell CSS.
+	for (let j = 0; j < 25; ++j){
+		mainTableCells[TCI][j].className = 'cell_total'; 
+	}
+	mainTableCells[TCI][25].className = 'cell_grandtotal'; 
+	
+	//Show or hide rows
+	for (let i = 0; i < 24; i++){
+		if (timeTotals[i] > 0) mainTableRows[i+1].style.display = '';
+		else mainTableRows[i+1].style.display = 'none';
+	}
+}
+
+//Callback function for request when loading counts from Google Sheet
+function onLoadRefreshCountsFromGoogleSheet(){
+	countsBeingRequested = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			buildTable(response.data);
+			console.log('Count request successful.');
+			
+			let d = new Date();
+			let hours = d.getHours();
+			
+			let doRefresh = (d.getHours() > 5 && d.getHours() < 18);
+			
+			let ampm = hours >= 12 ? 'PM' : 'AM';
+			if (hours > 12) hours -= 12;
+			if (hours == 0) hours = 12;
+			let minutes = d.getMinutes();
+			if (minutes < 10) minutes = "0" + minutes;
+			
+			d.setTime(d.getTime() + (1000*60*10));
+			let hours_next = d.getHours();
+			let ampm_next = hours_next >= 12 ? 'PM' : 'AM';
+			if (hours_next > 12) hours_next -= 12;
+			if (hours_next == 0) hours_next = 12;
+			let minutes_next = d.getMinutes();
+			if (minutes_next < 10) minutes_next = "0" + minutes_next;
+			
+			if (doRefresh) mainTableFooter.innerHTML = "Refreshed at " + hours + ":" + minutes + " " + ampm + ". Next refresh at " + hours_next + ":" + minutes_next + " " + ampm_next + ".";
+			else mainTableFooter.innerHTML = "Refreshed at " + hours + ":" + minutes + " " + ampm + ". Stopped auto-refreshing after-hours.";
+			
+			loadedCountString = this.responseText;
+		}
+	}
+	catch (e){
+		mainTableFooter.innerHTML = "Failed to load counts.";
+		console.log('Count request unsuccessful: ' + this.responseText);
+		console.log(e.description);
+	}
+}
+
+//Function for requesting counts form Google Sheet
+function refreshCountsFromGoogleSheet(){
+	if (!countsBeingRequested){
+		console.log('Getting counts from Google Sheet...');
+		var xhr = new XMLHttpRequest();
+		xhr.open("post", _googleSheetURL, true);
+		xhr.setRequestHeader('Content-Type', 'text/plain');
+		xhr.onload = onLoadRefreshCountsFromGoogleSheet;
+		xhr.send(JSON.stringify({'postType': 'GetCounts','location': _locationName}));
+		mainTableFooter.innerHTML = "Loading counts...";
+		countsBeingRequested = true;
+		if (refreshTimeout != -1){
+			refreshTimeout = -1;
+			clearTimeout(refreshTimeout);
+		}
+		let d = new Date();
+		if (d.getHours() > 5 && d.getHours() < 18) refreshTimeout = setTimeout(refreshCountsFromGoogleSheet, 1000*60*10);
+	}
+}
+
+//Function for toggling if stations should be collapsed or sorted. Will rebuild the table.
+function toggleCollapseStations(){
+	collapseStations = !collapseStations;
+	if (collapseStations) span_key.style.display = "none";
+	else span_key.style.display = "inline";
+	if (countsBeingRequested) return;
+	if (loadedCountString == "") return;
+	
+	buildTable(JSON.parse(loadedCountString).data);
+}
+</script>
+<h1>Daily Ship Totals</h1>
+<div>
+	<table id="table_main_counts" class="main_table">
+		<tr id="table_row_main_0"><th>User</th></tr>
+		<tr id="table_row_main_1" style="display:none"><th>11 PM</th></tr>
+		<tr id="table_row_main_2" style="display:none"><th>10 PM</th></tr>
+		<tr id="table_row_main_3" style="display:none"><th>9 PM</th></tr>
+		<tr id="table_row_main_4" style="display:none"><th>8 PM</th></tr>
+		<tr id="table_row_main_5" style="display:none"><th>7 PM</th></tr>
+		<tr id="table_row_main_6" style="display:none"><th>6 PM</th></tr>
+		<tr id="table_row_main_7" style="display:none"><th>5 PM</th></tr>
+		<tr id="table_row_main_8" style="display:none"><th>4 PM</th></tr>
+		<tr id="table_row_main_9" style="display:none"><th>3 PM</th></tr>
+		<tr id="table_row_main_10" style="display:none"><th>2 PM</th></tr>
+		<tr id="table_row_main_11" style="display:none"><th>1 PM</th></tr>
+		<tr id="table_row_main_12" style="display:none"><th>12 PM</th></tr>
+		<tr id="table_row_main_13" style="display:none"><th>11 AM</th></tr>
+		<tr id="table_row_main_14" style="display:none"><th>10 AM</th></tr>
+		<tr id="table_row_main_15" style="display:none"><th>9 AM</th></tr>
+		<tr id="table_row_main_16" style="display:none"><th>8 AM</th></tr>
+		<tr id="table_row_main_17" style="display:none"><th>7 AM</th></tr>
+		<tr id="table_row_main_18" style="display:none"><th>6 AM</th></tr>
+		<tr id="table_row_main_19" style="display:none"><th>5 AM</th></tr>
+		<tr id="table_row_main_20" style="display:none"><th>4 AM</th></tr>
+		<tr id="table_row_main_21" style="display:none"><th>3 AM</th></tr>
+		<tr id="table_row_main_22" style="display:none"><th>2 AM</th></tr>
+		<tr id="table_row_main_23" style="display:none"><th>1 AM</th></tr>
+		<tr id="table_row_main_24" style="display:none"><th>12 AM</th></tr>
+		<tr id="table_row_main_25"><th class="cell_total">Totals</th></tr>
+	</table>
+	<span id="table_footer">Loading counts...</span>
+	<br/>
+	<a class="button_small" onclick="refreshCountsFromGoogleSheet()">Refresh</a>
+	<a class="button_small" onclick="toggleCollapseStations()">Toggle Stations</a>
+	<br/>
+	<span id="span_key" style="display: none">Name colors: <span>Ship Exec Station</span> - <span class="cell_grandtotal">Casi Station</span> - <span class="cell_total">Hotseat</span></span>
+</div>
+</body>
+</html>

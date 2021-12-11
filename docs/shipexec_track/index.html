@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+	<title>ShipExecTrack Setup</title>
+</head>
+<body onload="initPage()">
+<script>
+function initPage(){
+	_bookmarkletURL1 = "javascript:(function(){var s=document.createElement('script');s.type='text/javascript';s.src='http://";
+	_bookmarkletURL2 = document.location.hostname;
+	if (_bookmarkletURL2 == "") _bookmarkletURL2 = "172.16.150.66";
+	_bookmarkletURL3 = "/Hosting/ShipExecTrack.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
+	_bookmarkletURL3Dev = "/Hosting/ShipExecTrack.dev.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
+
+	document.getElementById("inputDomain").value = _bookmarkletURL2;
+
+	updateHrefs();
+}
+
+function changeDomainOnClick(){
+	_bookmarkletURL2 = document.getElementById("inputDomain").value;
+	updateHrefs();
+}
+
+function updateHrefs(){
+	document.getElementById("aMain").href = _bookmarkletURL1 + _bookmarkletURL2 + _bookmarkletURL3;
+	document.getElementById("aDev").href = _bookmarkletURL1 + _bookmarkletURL2 + _bookmarkletURL3Dev;
+}
+</script>
+<h1>ShipExecTrack</h1>
+<p>SipExecTrack counts shipments and helps with automatically shipping, as well as displaying shipping metrics.</p>
+<p>To install ShipExecTrack for use:</p>
+<list>
+	<li>Open this page in Internet Explorer</li>
+	<li>Drag & Drop this link: <a id="aMain" href="javascript:    (function(){        var s=document.createElement('script');        s.type='text/javascript';            s.src='http://172.16.150.66/Hosting/ShipExecTrack.js';        document.getElementsByTagName('head')[0].appendChild(s);    }());">ShipExecTrack</a> into your Bookmarks Bar. <a href="#" onclick="document.getElementById('imgExample').style.display = (document.getElementById('imgExample').style.display == 'none') ? 'inline-block' : 'none';">(Example Image)</a></li>
+	<img id="imgExample" style="display: none; border-radius: 2px; border-color: black; border-style: solid;" src="ShipExecTrackExample.jpg"/>
+</list>
+<p>Once it is added to the Bookmarks Bar, it is ready to use. To use it:</p>
+<list>
+	<li>Open ShipExec like you normally would</li>
+	<li>Navigate to the Shipping page</li>
+	<li>Wait until the page is loaded</li>
+	<li><span style="text-decoration: underline;">Left-Click</span> the newly created Bookmarklet. The page should change visually if it works.</li>
+	<li>Login on the bottom-right of the page, using your Casi username.</li>
+</list>
+<br/>
+<p>Use the button below if needed to change the domain used in the Drag & Drop Bookmarklets before you create them.</p>
+<input id="inputDomain" type="text" name="inputDomain"/>
+<button onclick="changeDomainOnClick();">Change Domain</button>
+<br/>
+<br/>
+<button onclick="document.getElementById('divHidden').style.display = 'inline'; this.style.display='none';">Show Hidden</button>
+<div id="divHidden" style="display: none;">
+	<p><a id="aDev" href="javascript:    (function(){        var s=document.createElement('script');        s.type='text/javascript';            s.src='http://172.16.150.66/Hosting/ShipExecTrack.dev.js';        document.getElementsByTagName('head')[0].appendChild(s);    }());">ShipExecTrack Dev</a> Development Version - Do not use!</p>
+</div>
+</body>
+</html>

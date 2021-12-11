@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Rapidfill Inventory</title>
+<style>
+body{
+	background-color: black;
+	color: white;
+	text-align: center;
+}
+div{
+	margin: 0 auto;
+}
+div.divHeaderButtons{
+	margin: 0 30% 0 70%;
+}
+button{
+	background-color: #202020;
+	border-color: white;
+	color: white;
+	font-size: large;
+	margin: 3px;
+	padding: 3px;
+	cursor: pointer;
+}
+button.buttonMain{
+	font-size: xx-large;
+	margin: 8px;
+	padding: 8px;
+}
+button:disabled,
+button[disabled]{
+	background-color: #606060;
+	border-color: #c0c0c0;
+	color: #A0A0A0;
+	cursor: default;
+}
+h1{
+	font-size: 300%;
+}
+input{
+	background-color: black;
+	border-color: white;
+	color: white;
+	text-align: center;
+	max-width: 100px;
+	cursor: text;
+}
+input.large{
+	font-size: 150%;
+}
+input.wide{
+	font-size: 150%;
+	max-width: 300px;
+}
+td,th{
+	padding: 10px;
+	border-color: gray;
+	border-width: 1px;
+	border-style: solid;
+	max-width: 300px;
+}
+td.large{
+	font-size: 150%;
+}
+table{
+	display: inline-block;
+}
+#divOverlay{
+	position: fixed;
+	display: none;
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: #000000E0;
+	z-index: 2;
+	cursor: default;
+}
+.overlayText{
+	margin: 0;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	-ms-transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%);
+}
+.overlayButton{
+	margin: 0;
+	position: absolute;
+	top: 60%;
+	left: 50%;
+	-ms-transform: translate(-50%, -40%);
+	transform: translate(-50%, -40%);
+	background-color: #000000;
+}
+</style>
+</head>
+<body onload="initPage()">
+<script>
+function initPage(){
+	_googleSheetURL = 'https://script.google.com/a/macros/vetsource.com/s/AKfycbxlAB8Eq9Coi0_-CrFDrh42_bl8380pXzAZyXQyCZI4dxr8bot0KdsfpwFgQkOeYkTk-g/exec';
+
+	currentPage = 0;
+	isPageLoaded = false;
+	tableData = new Array();
+	editingProductID = -1;
+	editingProductIndex = 0;
+	tableInputs = new Array();
+	isWaitingOnNetwork = false;
+
+	elementSubTitle = document.getElementById("subTitle");
+	elementSubTitleTextNode = elementSubTitle.childNodes[0];
+
+	elementDivOverlay = document.getElementById("divOverlay");
+	elementOverlayTextNode = document.getElementById("overlayText").childNodes[0];
+	elementOverlayButton = document.getElementById("buttonOverlay");
+
+	loadDataFromSheet();
+}
+
+function onDataLoaded(){
+	var disableBins = true;
+	var disablePreviousRound = true;
+	for (var i = 0; i < tableData.length; i++){
+		if (tableData[i].BINS_NEEDED > 0){
+			disableBins = false;
+			break;
+		}
+	}
+	for (var i = 0; i < tableData.length; i++){
+		if (tableData[i].PREVIOUS_ROUND > 0){
+			disablePreviousRound = false;
+			break;
+		}
+	}
+	var button = document.getElementById("buttonMainBin");
+	if (button.disabled != disableBins){
+		button.disabled = disableBins;
+		if (disableBins) button.title = "Replenishments: No replenishment neccessary."
+		else button.title = "Replenish depleted bins."
+	}
+	button = document.getElementById("buttonMainPreviousRound");
+	if (button.disabled != disablePreviousRound){
+		button.disabled = disablePreviousRound;
+		if (disablePreviousRound) button.title = "No previous round exists."
+		else button.title = "View the quantities of the latest round."
+	}
+	loadPage(currentPage);
+}
+
+function unloadCurrentPage(){
+	switch (currentPage){
+		case 0:
+			document.getElementById("divMainMenuButtons").style.display = "none";
+			break;
+		case 1:
+			document.getElementById("divPickTable").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			document.getElementById("divFooterButtons").style.display = "none";
+			break;
+		case 2:
+			document.getElementById("divBinTable").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			document.getElementById("divFooterButtons").style.display = "none";
+			break;
+		case 3:
+			document.getElementById("divInventoryTable").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			break;
+		case 4:
+			document.getElementById("divCycleCountTable").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			document.getElementById("divFooterButtons").style.display = "none";
+			break;
+		case 5:
+			document.getElementById("divEditProductsTable").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			document.getElementById("buttonAddProduct").style.display = "none";
+			break;
+		case 6:
+			document.getElementById("divEditSingleProduct").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			document.getElementById("divFooterButtons").style.display = "none";
+			document.getElementById("buttonCancel").style.display = "none";
+			break;
+		case 7:
+			document.getElementById("divPreviousRound").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			break;
+		case 8:
+			document.getElementById("divAddProduct").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			document.getElementById("divFooterButtons").style.display = "none";
+			document.getElementById("buttonCancel").style.display = "none";
+			break;
+	}
+	isPageLoaded = false;
+}
+
+function loadPage(page){
+	setOverlay(false,null,false);
+	if (isPageLoaded) unloadCurrentPage();
+	currentPage = page;
+	switch (currentPage){
+	case 0://Main Menu
+		setSubtitle(false, null);
+		document.getElementById("divMainMenuButtons").style.display = "initial";
+		break;
+	case 1://New Round
+		buildPickTable();
+		setSubtitle(true, "Input Round");
+		document.getElementById("divPickTable").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		document.getElementById("divFooterButtons").style.display = "block";
+		break;
+	case 2://Bin Replenishment
+		buildBinTable();
+		setSubtitle(true, "Bin Replenishment");
+		document.getElementById("divBinTable").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		document.getElementById("divFooterButtons").style.display = "block";
+		break;
+	case 3://View Inventory
+		buildInventoryTable();
+		setSubtitle(true, "Viewing Inventory");
+		document.getElementById("divInventoryTable").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		break;
+	case 4://Cycle Count
+		buildCycleCountTable();
+		setSubtitle(true, "Cycle Count");
+		document.getElementById("divCycleCountTable").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		document.getElementById("divFooterButtons").style.display = "block";
+		break;
+	case 5://Edit Products
+		buildEditProductsTable();
+		setSubtitle(true, "Editing Products");
+		document.getElementById("divEditProductsTable").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		document.getElementById("buttonAddProduct").style.display = "inline";
+		break;
+	case 6://Edit Single Product
+		buildEditSingleProductTable();
+		setSubtitle(true, "Editing a Product");
+		document.getElementById("divEditSingleProduct").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		document.getElementById("divFooterButtons").style.display = "block";
+		document.getElementById("buttonCancel").style.display = "inline";
+		break;
+	case 7://View Previous Round
+		buildPreviousRoundTable();
+		setSubtitle(true, "Viewing Previous Round");
+		document.getElementById("divPreviousRound").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		break;
+	case 8://Edit Single Product
+		buildAddProductTable();
+		setSubtitle(true, "Adding a new Product");
+		document.getElementById("divAddProduct").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		document.getElementById("divFooterButtons").style.display = "block";
+		document.getElementById("buttonCancel").style.display = "inline";
+		break;
+	}
+	isPageLoaded = true;
+}
+
+function setSubtitle(visible, text){
+	if (visible){
+		elementSubTitle.style.display = "block";
+		elementSubTitleTextNode.nodeValue = text;
+		return;
+	}
+	elementSubTitle.style.display = "none";
+}
+
+function setOverlay(visible, text, button){
+	if (visible){
+		elementDivOverlay.style.display = "block";
+		elementOverlayTextNode.nodeValue = text;
+		if (button){
+			elementOverlayButton.style.display = "block";
+		}
+		else{
+			elementOverlayButton.style.display = "none";
+		}
+		return;
+	}
+	elementDivOverlay.style.display = "none";
+}
+
+function onSubmitButtonClick(){
+	if (isWaitingOnNetwork) return;
+	switch (currentPage){
+	case 1:
+		var outData = new Array();
+		for (var i = 0; i < tableData.length; i++){
+			try{
+				var num = parseInt(tableInputs[i].value);
+				if (!(num > 0)) continue;//Not to account for NaN
+				outData.push({"ID":tableData[i].ID, "QTY":num});
+			}
+			catch (e){}
+		}
+		if (outData.length <= 0){
+			alert("Nothing to submit!");
+			return;
+		}
+		submitRoundToSheet(outData);
+		break;
+	case 2:
+		var outData = new Array();
+		for (var i = 0; i < tableInputs.length; i++){
+			try{
+				var num = parseInt(tableInputs[i].value);
+				if (!(num > 0)) continue;//Not to account for NaN
+				outData.push({"ID":tableInputs[i].productID, "BIN_QTY":num});
+			}
+			catch (e){}
+		}
+		if (outData.length <= 0){
+			alert("Nothing to submit!");
+			return;
+		}
+		submitBinReplenishmentToSheet(outData);
+		break;
+	case 4:
+		var outData = new Array();
+		for (var i = 0; i < tableData.length; i++){
+			try{
+				var num = parseInt(tableInputs[i].value);
+				if (!(num != tableData[i].IN_RAPIDFILL)) continue;//Double not to account for NaN
+				outData.push({"ID":tableData[i].ID, "QTY":num});
+			}
+			catch (e){}
+		}
+		if (outData.length <= 0){
+			alert("Nothing to submit!");
+			return;
+		}
+		submitCycleCountToSheet(outData);
+		break;
+	case 6:
+		if (tableData[editingProductIndex].SKU == tableInputs[0].value &&
+			tableData[editingProductIndex].PRODUCT_NAME == tableInputs[1].value &&
+			tableData[editingProductIndex].LOCATION == tableInputs[2].value &&
+			tableData[editingProductIndex].BIN_QTY == tableInputs[3].value &&
+			tableData[editingProductIndex].PAR_LEVEL == tableInputs[4].value){
+			alert("No changes to submit!");
+			return;
+		}
+		try{
+			var outData = new Array();
+			var numBinQty = parseInt(tableInputs[3].value);
+			if (!(numBinQty > 0)){//Not to account for NaN
+				alert("Invalid Bin Qty!");
+				return;
+			}
+			var numParLevel = parseInt(tableInputs[4].value);
+			if (!(numParLevel >= 0)){//Not to account for NaN
+				alert("Invalid Par Level!");
+				return;
+			}
+			outData.push({"ID":editingProductID, "SKU":tableInputs[0].value, "PRODUCT_NAME":tableInputs[1].value, "LOCATION":tableInputs[2].value, "BIN_QTY":numBinQty, "PAR_LEVEL":numParLevel});
+			submitEditProductToSheet(outData);
+		}
+		catch (e){}
+		break;
+	case 8:
+		try{
+			if (tableInputs[0].value == ""){
+				alert("Enter a product SKU!");
+				return;
+			}
+			if (tableInputs[1].value == ""){
+				alert("Enter a product name!");
+				return;
+			}
+			if (tableInputs[2].value == ""){
+				alert("Enter a location!");
+				return;
+			}
+			var numBinQty = parseInt(tableInputs[3].value);
+			if (!(numBinQty > 0)){
+				alert("Quantity per bin must be greater than 0!");
+				return;
+			}
+			var numParLevel = parseInt(tableInputs[4].value);
+			if (!(numParLevel >= 0)){
+				alert("Invalid Par Level!");
+				return;
+			}
+			var numInitialCount = parseInt(tableInputs[5].value);
+			if (!(numInitialCount >= 0)){
+				alert("Invalid initial count!");
+				return;
+			}
+			var outData = new Array();
+			outData.push({"SKU":tableInputs[0].value, "PRODUCT_NAME":tableInputs[1].value, "LOCATION":tableInputs[2].value, "BIN_QTY":numBinQty, "PAR_LEVEL":numParLevel, "IN_RAPIDFILL":numInitialCount});
+			submitAddProductToSheet(outData);
+		}
+		catch (e){}
+		break;
+	}
+	setOverlay(true,"Loading... Please wait.",false);
+}
+
+function onBackButtonClick(){
+	if (isWaitingOnNetwork) return;
+	loadPage(5);
+}
+
+function onButtonRemoveProductClick(productID){
+	if (isWaitingOnNetwork) return;
+	if (confirm("Are you sur you want to remove this product? This cannot be undone.")){
+		var outData = new Array();
+		outData.push({"ID": productID});
+		submitRemoveProductToSheet(outData);
+		setOverlay(true,"Loading... Please wait.",false);
+	}
+}
+
+function emptyTableExceptFirstRow(table){
+	if (table.children.length > 1){
+		var firstRow = table.firstChild;
+		while (table.firstChild) {
+			table.removeChild(table.lastChild);
+		}
+		table.appendChild(firstRow);
+	}
+}
+
+function createElementWithTextNode(element, text, className){
+	var elem = document.createElement(element);
+	elem.appendChild(document.createTextNode(text));
+	if (className != "") elem.className = className;
+	return elem;
+}
+
+function createElementWithChildNode(element, child, className){
+	var elem = document.createElement(element);
+	elem.appendChild(child);
+	if (className != "") elem.className = className;
+	return elem;
+}
+
+function createTextField(defaultValue, className){
+	var elem = document.createElement('input');
+	elem.type = 'text';
+	if (defaultValue != "") elem.value = defaultValue;
+	if (className != "") elem.className = className;
+	return elem;
+}
+
+function createNumberField(min, max, step, defaultValue, className){
+	var elem = document.createElement('input');
+	elem.type = 'number';
+	elem.min = min;
+	elem.max = max;
+	elem.step = step;
+	if (typeof defaultValue === "number") elem.value = defaultValue;
+	if (className != "") elem.className = className;
+	return elem;
+}
+
+function buildPickTable(){
+	var table = document.getElementById('tablePick').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	for (var i = 0; i < tableData.length; i++){
+		var tableRow = document.createElement('tr');
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
+		var input = createNumberField(0, 1000000, 1, "", "");
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		table.appendChild(tableRow);
+	}
+}
+
+function buildBinTable(){
+	var table = document.getElementById('tableBin').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	for (var i = 0; i < tableData.length; i++){
+		if (tableData[i].BINS_NEEDED <= 0) continue;
+		var tableRow = document.createElement('tr');
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PAR_LEVEL,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BIN_QTY,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BINS_NEEDED,"large"));
+		var input = createNumberField(0, 1000000, 1, tableData[i].BINS_NEEDED, "large");
+		input.productID = tableData[i].ID;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		table.appendChild(tableRow);
+	}
+}
+
+function buildPreviousRoundTable(){
+	var table = document.getElementById('tablePreviousRound').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	for (var i = 0; i < tableData.length; i++){
+		if (tableData[i].PREVIOUS_ROUND <= 0) continue;
+		var tableRow = document.createElement('tr');
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PREVIOUS_ROUND,""));
+		table.appendChild(tableRow);
+	}
+}
+
+function buildInventoryTable(){
+	var table = document.getElementById('tableInventory').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	for (var i = 0; i < tableData.length; i++){
+		var tableRow = document.createElement('tr');
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
+		table.appendChild(tableRow);
+	}
+}
+
+function buildCycleCountTable(){
+	var table = document.getElementById('tableCycleCount').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	for (var i = 0; i < tableData.length; i++){
+		var tableRow = document.createElement('tr');
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
+		var input = createNumberField(0, 1000000, 1, tableData[i].IN_RAPIDFILL, "large");
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		table.appendChild(tableRow);
+	}
+}
+
+function buildEditProductsTable(){
+	var table = document.getElementById('tableEditProducts').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	for (var i = 0; i < tableData.length; i++){
+		var tableRow = document.createElement('tr');
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BIN_QTY,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PAR_LEVEL,""));
+		var button = createElementWithTextNode('button',"Edit","");
+		button.productID = tableData[i].ID;
+		button.onclick = function(){
+			editingProductID = this.productID;
+			loadPage(6);
+		};
+		tableRow.appendChild(createElementWithChildNode('td',button,""));
+		button = createElementWithTextNode('button',"Remove","");
+		button.productID = tableData[i].ID;
+		button.onclick = function(){
+			onButtonRemoveProductClick(this.productID);
+		};
+		tableRow.appendChild(createElementWithChildNode('td',button,""));
+		table.appendChild(tableRow);
+	}
+}
+
+function buildEditSingleProductTable(){
+	var table = document.getElementById('tableEditSingleProduct').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	var tableRow = document.createElement('tr');
+
+	editingProductIndex = -1;
+	for (var i = 0; i < tableData.length; i++){
+		if (tableData[i].ID == editingProductID){
+			editingProductIndex = i;
+			break;
+		}
+	}
+	if (editingProductIndex == -1){
+		console.log("Error finding matching ID from available data - ID: " + editingProductID);
+		loadPage(0);
+		return;
+	}
+
+	var input = createTextField(tableData[editingProductIndex].SKU, "wide");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createTextField(tableData[editingProductIndex].PRODUCT_NAME, "wide");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createTextField(tableData[editingProductIndex].LOCATION, "wide");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createNumberField(1,1000000,1,tableData[editingProductIndex].BIN_QTY, "large");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createNumberField(0,1000000,1,tableData[editingProductIndex].PAR_LEVEL, "large");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	table.appendChild(tableRow);
+}
+
+function buildAddProductTable(){
+	var table = document.getElementById('tableAddProduct').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	var tableRow = document.createElement('tr');
+
+	var input = createTextField("", "wide");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createTextField("", "wide");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createTextField("", "wide");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createNumberField(1,1000000,1,50, "large");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createNumberField(0,1000000,1,50, "large");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	var input = createNumberField(0,1000000,1,0, "large");
+	tableInputs.push(input);
+	tableRow.appendChild(createElementWithChildNode('td',input,""));
+
+	table.appendChild(tableRow);
+}
+
+//#region Network
+function onLoadDataFromSheet(){
+	isWaitingOnNetwork = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 0;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setSubtitle(true, "Load failed. Retrying...", false);
+	loadDataFromSheet();
+}
+
+function loadDataFromSheet(){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"getData"}), onLoadDataFromSheet);
+}
+
+function onSubmitRoundToSheet(){
+	isWaitingOnNetwork = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 0;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setOverlay(true,"Submit failed. Please retry.", true);
+}
+
+function submitRoundToSheet(data){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"submitRound", "data": data}), onSubmitRoundToSheet);
+}
+
+function onSubmitBinReplenishmentToSheet(){
+	isWaitingOnNetwork = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 0;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setOverlay(true,"Submit failed. Please retry.", true);
+}
+
+function submitBinReplenishmentToSheet(data){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"submitBinReplenishment", "data": data}), onSubmitBinReplenishmentToSheet);
+}
+
+function onSubmitCycleCountToSheet(){
+	isWaitingOnNetwork = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 0;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setOverlay(true,"Submit failed. Please retry.", true);
+}
+
+function submitCycleCountToSheet(data){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"submitCycleCount", "data": data}), onSubmitCycleCountToSheet);
+}
+
+function onSubmitEditProductToSheet(){
+	isWaitingOnNetwork = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 5;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setOverlay(true,"Edit failed. Please retry.", true);
+}
+
+function submitEditProductToSheet(data){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"editProduct", "data": data}), onSubmitEditProductToSheet);
+}
+
+function onSubmitAddProductToSheet(){
+	isWaitingOnNetwork = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 5;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setOverlay(true,"Submit failed. Please retry.", true);
+}
+
+function submitAddProductToSheet(data){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"addProduct", "data": data}), onSubmitAddProductToSheet);
+}
+
+function onSubmitRemoveProductToSheet(){
+	isWaitingOnNetwork = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 5;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setOverlay(true,"Remove failed. Please retry.", true);
+}
+
+function submitRemoveProductToSheet(data){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"removeProduct", "data": data}), onSubmitRemoveProductToSheet);
+}
+
+function webRequest(url, data, loadCallback){
+	console.log('Sending webrequest...');
+	isWaitingOnNetwork = true;
+	var xhr = new XMLHttpRequest();
+	xhr.open("post", url, true);
+	xhr.setRequestHeader('Content-Type', 'text/plain');
+	xhr.onload = loadCallback;
+	xhr.send(data);
+}
+//#endregion
+</script>
+<div class="mainContent">
+	<h1 class="title">Rapidfill Inventory</h1>
+	<h2 id="subTitle">Loading... Please wait a moment.</h2>
+	<div id="divHeaderButtons" style="display: none;">
+		<button onclick="loadPage(0);">Back to Home</button>
+		<button id="buttonAddProduct" onclick="loadPage(8); style">Add New Product</button>
+	</div>
+	<div id="divMainMenuButtons" style="display: none;">
+		<button class="buttonMain" onclick="loadPage(1);" id="buttonMainRound" title="Enter data for a round and deduct from inventory.">Input Round</button>
+		<br/>
+		<button class="buttonMain" onclick="loadPage(2);" id="buttonMainBin" title="Replenish depleted bins.">Bin Replenishment</button>
+		<br/>
+		<button class="buttonMain" onclick="loadPage(7);" id="buttonMainPreviousRound" title="View the quantities of the latest round.">View Previous Round</button>
+		<br/>
+		<button class="buttonMain" onclick="loadPage(3);" title="View on-hand counts in Rapid-Fill.">View Inventory</button>
+		<br/>
+		<button class="buttonMain" onclick="loadPage(4);" title="Edit on-hand counts in Rapid-Fill.">Cycle Count</button>
+		<br/>
+		<button class="buttonMain" onclick="loadPage(5);" title="Edit product details.">Edit Products</button>
+	</div>
+	<div id="divPickTable" style="display: none;">
+		<table id="tablePick">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>Qty Picked</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divBinTable" style="display: none;">
+		<table id="tableBin">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>In Rapidfill</th>
+				<th>Par Level</th>
+				<th>Qty Per Bin</th>
+				<th>Bins Needed</th>
+				<th>Bins Picked</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divInventoryTable" style="display: none;">
+		<table id="tableInventory">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>Qty</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divCycleCountTable" style="display: none;">
+		<table id="tableCycleCount">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>Qty</th>
+				<th>New Qty</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divEditProductsTable" style="display: none;">
+		<table id="tableEditProducts">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>Qty Per Bin</th>
+				<th>Par Level</th>
+				<th>Edit</th>
+				<th>Remove</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divEditSingleProduct" style="display: none;">
+		<table id="tableEditSingleProduct">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>Qty Per Bin</th>
+				<th>Par Level</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divAddProduct" style="display: none;">
+		<table id="tableAddProduct">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>Qty Per Bin</th>
+				<th>Par Level</th>
+				<th>Initial QTY</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divPreviousRound" style="display: none;">
+		<table id="tablePreviousRound">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>Qty</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divFooterButtons" style="display: none;">
+		<button id="buttonCancel" style="display: none;" onclick="onBackButtonClick();">Cancel</button>
+		<button id="buttonSubmit" onclick="onSubmitButtonClick();">Submit</button>
+	</div>
+</div>
+<div id="divOverlay">
+	<h1 class="overlayText" id="overlayText">Loading... Please wait.</h1>
+	<br>
+	<button class="overlayButton" id="buttonOverlay" onclick="setOverlay(false,null,false);">OK</button>
+</div>
+</body>
+</html>
