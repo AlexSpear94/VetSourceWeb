@@ -10,8 +10,8 @@ function initPage(){
 	_bookmarkletURL1 = "javascript:(function(){var s=document.createElement('script');s.type='text/javascript';s.src='http://";
 	_bookmarkletURL2 = document.location.hostname;
 	if (_bookmarkletURL2 == "") _bookmarkletURL2 = "172.16.150.66";
-	_bookmarkletURL3 = "/Hosting/ShipExecTrack.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
-	_bookmarkletURL3Dev = "/Hosting/ShipExecTrack.dev.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
+	_bookmarkletURL3 = "/VetSourceWeb/shipexec_track/shipexec_track.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
+	_bookmarkletURL3Dev = "/VetSourceWeb/shipexec_track/shipexec_track.dev.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
 
 	document.getElementById("inputDomain").value = _bookmarkletURL2;
 
@@ -33,8 +33,8 @@ function updateHrefs(){
 <p>To install ShipExecTrack for use:</p>
 <list>
 	<li>Open this page in Internet Explorer</li>
-	<li>Drag & Drop this link: <a id="aMain" href="javascript:    (function(){        var s=document.createElement('script');        s.type='text/javascript';            s.src='http://172.16.150.66/Hosting/ShipExecTrack.js';        document.getElementsByTagName('head')[0].appendChild(s);    }());">ShipExecTrack</a> into your Bookmarks Bar. <a href="#" onclick="document.getElementById('imgExample').style.display = (document.getElementById('imgExample').style.display == 'none') ? 'inline-block' : 'none';">(Example Image)</a></li>
-	<img id="imgExample" style="display: none; border-radius: 2px; border-color: black; border-style: solid;" src="ShipExecTrackExample.jpg"/>
+	<li>Drag & Drop this link: <a id="aMain" href="#">ShipExecTrack</a> into your Bookmarks Bar. <a href="#" onclick="document.getElementById('imgExample').style.display = (document.getElementById('imgExample').style.display == 'none') ? 'inline-block' : 'none';">(Example Image)</a></li>
+	<img id="imgExample" style="display: none; border-radius: 2px; border-color: black; border-style: solid;" src="example.jpg"/>
 </list>
 <p>Once it is added to the Bookmarks Bar, it is ready to use. To use it:</p>
 <list>
@@ -52,7 +52,7 @@ function updateHrefs(){
 <br/>
 <button onclick="document.getElementById('divHidden').style.display = 'inline'; this.style.display='none';">Show Hidden</button>
 <div id="divHidden" style="display: none;">
-	<p><a id="aDev" href="javascript:    (function(){        var s=document.createElement('script');        s.type='text/javascript';            s.src='http://172.16.150.66/Hosting/ShipExecTrack.dev.js';        document.getElementsByTagName('head')[0].appendChild(s);    }());">ShipExecTrack Dev</a> Development Version - Do not use!</p>
+	<p><a id="aDev" href="#">ShipExecTrack Dev</a> Development Version - Do not use!</p>
 </div>
 </body>
 </html>
