@@ -390,9 +390,11 @@ function onSubmitButtonClick(){
 		var outData = new Array();
 		for (var i = 0; i < tableInputs.length; i++){
 			try{
-				var num = parseInt(tableInputs[i].value);
+				var num = parseInt(tableInputs[i*2].value);
 				if (!(num > 0)) continue;//Not to account for NaN
-				outData.push({"ID":tableInputs[i].productID, "BIN_QTY":num});
+				var numPartial = parseInt(tableInputs[i*2+1].value);
+				if (!(numPartial > 0)) numPartial = 0;//Not to account for NaN
+				outData.push({"ID":tableInputs[i].productID, "BIN_QTY":num, "PARTIAL_QTY":numPartial});
 			}
 			catch (e){}
 		}
@@ -572,6 +574,10 @@ function buildBinTable(){
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BIN_QTY,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BINS_NEEDED,"large"));
 		var input = createNumberField(0, 1000000, 1, tableData[i].BINS_NEEDED, "large");
+		input.productID = tableData[i].ID;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createNumberField(0, 1000000, 1, "", "large");
 		input.productID = tableData[i].ID;
 		tableInputs.push(input);
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
@@ -964,7 +970,8 @@ function webRequest(url, data, loadCallback){
 				<th>Par Level</th>
 				<th>Qty Per Bin</th>
 				<th>Bins Needed</th>
-				<th>Bins Picked</th>
+				<th>Bins Picked<br/>(Including Partial)</th>
+				<th>Partial Bin QTY</th>
 			</tr>
 		</table>
 	</div>
