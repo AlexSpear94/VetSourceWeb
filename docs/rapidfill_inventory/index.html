@@ -121,6 +121,9 @@ function initPage(){
 	elementOverlayTextNode = document.getElementById("overlayText").childNodes[0];
 	elementOverlayButton = document.getElementById("buttonOverlay");
 
+	elementRefreshedLabelTextNode = document.createTextNode("");
+	document.getElementById("refreshedLabel").appendChild(elementRefreshedLabelTextNode);
+
 	window.addEventListener("hashchange", onHashChange, false);
 	loadDataFromSheet();
 }
@@ -153,6 +156,8 @@ function onDataLoaded(){
 		else button.title = "View the quantities of the latest round."
 	}
 	loadPage(currentPage);
+
+	updateRefreshedLabel();
 }
 
 function unloadCurrentPage(){
@@ -349,6 +354,17 @@ function setOverlay(visible, text, button){
 		return;
 	}
 	elementDivOverlay.style.display = "none";
+}
+
+function updateRefreshedLabel(){
+	var d = new Date();
+	var hours = d.getHours();
+	var ampm = hours >= 12 ? 'PM' : 'AM';
+	if (hours > 12) hours -= 12;
+	if (hours == 0) hours = 12;
+	var minutes = d.getMinutes();
+	if (minutes < 10) minutes = "0" + minutes;
+	elementRefreshedLabelTextNode.nodeValue = "Refreshed at " + hours + ":" + minutes + " " + ampm + ". If changes are made at another station, refresh the page.";
 }
 
 function onSubmitButtonClick(){
@@ -910,6 +926,7 @@ function webRequest(url, data, loadCallback){
 <div class="mainContent">
 	<h1 class="title">Rapidfill Inventory</h1>
 	<h2 id="subTitle">Loading... Please wait a moment.</h2>
+	<p id="refreshedLabel"></p>
 	<div id="divHeaderButtons" style="display: none;">
 		<button onclick="loadPage(0);">Back to Home</button>
 		<button id="buttonAddProduct" onclick="loadPage(8); style">Add New Product</button>
