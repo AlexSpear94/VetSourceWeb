@@ -30,6 +30,9 @@ th, td{
 	color: yellow;
 	font-weight: 800px;
 }
+.reships{
+	color: pink;
+}
 .table_footer{
 	margin: 5px;
 }
@@ -97,6 +100,9 @@ function sortCompareStation(ldata, rdata){
 	let lvalue = 0;
 	let rvalue = 0;
 	switch (ldata.station){
+	case 'reships':
+		lvalue = -1;
+		break;
 	case 'casi':
 		lvalue = 1;
 		break;
@@ -105,6 +111,9 @@ function sortCompareStation(ldata, rdata){
 		break;
 	}
 	switch (rdata.station){
+	case 'reships':
+		rvalue = -1;
+		break;
 	case 'casi':
 		rvalue = 1;
 		break;
@@ -215,6 +224,7 @@ function buildTable(data) {
 		if (!collapseStations){
 			if (data[i-1].station == "casi") mainTableCells[i][0].className = 'cell_grandtotal';
 			if (data[i-1].station == "hotseat") mainTableCells[i][0].className = 'cell_total';
+			if (data[i-1].station == "reships") mainTableCells[i][0].className = 'reships';
 		}
 		for (let j = 1; j < 25; ++j){
 			mainTableCells[i][j].className = "";
@@ -347,7 +357,7 @@ function toggleCollapseStations(){
 	<a class="button_small" onclick="refreshCountsFromGoogleSheet()">Refresh</a>
 	<a class="button_small" onclick="toggleCollapseStations()">Toggle Stations</a>
 	<br/>
-	<span id="span_key" style="display: none">Name colors: <span>Ship Exec Station</span> - <span class="cell_grandtotal">Casi Station</span> - <span class="cell_total">Hotseat</span></span>
+	<span id="span_key" style="display: none">Name colors: <span class="reships">Reships</span> - <span>Ship Exec Station</span> - <span class="cell_grandtotal">Casi Station</span> - <span class="cell_total">Hotseat</span></span>
 </div>
 </body>
 </html>
