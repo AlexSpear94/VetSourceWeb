@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>V1 Metrics</title>
+<style>
+body{
+	background-color: black;
+	color: white;
+}
+h1{
+	color: white;
+}
+table.main_table{
+	display: table;
+	margin: 10px;
+	padding: 5px;
+	font-size: 18px;
+	text-align: center;
+}
+th, td{
+	min-width: 75px;
+	padding: 5px;
+}
+.cell_orange{
+	color: orange;
+	font-weight: 800px;
+}
+.cell_yellow{
+	color: yellow;
+	font-weight: 800px;
+}
+.table_footer{
+	margin: 5px;
+}
+.button_small{
+	text-decoration-line: none;
+	margin: 5px;
+	padding: 5px;
+	border-color: #606060;
+	border-width: 2px;
+	border-style: ridge;
+	display: inline-block;
+	cursor: pointer;
+}
+</style>
+</head>
+<body onload="initPage()">
+<script>
+function initPage(){
+	_googleSheetURL = 'https://script.google.com/macros/s/AKfycbwg8fs3FQl9Qcad4mOdrVnJOFFnRNL23miQJh-A1Hifqqc1ixxfsjqXo9LdnhT4Wo6x/exec';
+	
+	countsBeingRequested = false;
+	refreshTimeout = -1;
+	
+	initTable();
+	refreshDataFromGoogleSheet();
+}
+
+//Get references to the main table.
+function initTable(){
+	mainTable = document.getElementById('table_main_counts');
+	mainTableFooter = document.getElementById('table_footer');
+	mainTableRows = new Array(26);
+	for (let i = 0; i < 26; ++i){
+		mainTableRows[i] = document.getElementById('table_row_main_' + i);
+	}
+	mainTableTextNodes = new Array(25);
+	for (let i = 0; i < 25; ++i){
+		mainTableTextNodes[i] = new Array(3);
+		for (let j = 0; j < 3; ++j){
+			var textNode = document.createTextNode("");
+			mainTableTextNodes[i][j] = textNode;
+			var cell = mainTableRows[i+1].children[j+1];
+			cell.appendChild(textNode);
+		}
+	}
+}
+
+//Function for making all the data cells of the table empty
+function clearTable() {
+	for (let i = 0; i < 25; ++i){
+		for (let j = 0; j < 3; ++j){
+			mainTableTextNodes[i][j].nodeValue = "";
+		}
+	}
+}
+
+//Function for building the table with all users.
+function buildTable(data) {
+	clearTable();
+	
+	//Verify data is valid
+	if (data == 0) data = new Array(0);
+	
+	//Totals variables
+	let queueTotals = 0;
+	let finishedTotals = 0;
+
+	let showRow = new Array(24);
+	
+	//Itterate through cells and data
+	for (let i = 0; i < data.length; ++i){
+		showRow[-i+23] = false;
+		let queue = parseInt(data[i].Queue);
+		if (typeof queue !== 'undefined' && !isNaN(queue)){
+			showRow[-i+23] = true;
+			mainTableTextNodes[-i+23][0].nodeValue = queue;
+			queueTotals += queue;
+		}
+		let finished = parseInt(data[i].Finished);
+		if (typeof finished !== 'undefined' && !isNaN(finished)){
+			showRow[-i+23] = true;
+			mainTableTextNodes[-i+23][1].nodeValue = finished;
+			finishedTotals += parseInt(finished);
+		}
+		let percent = data[i].Percentage;
+		if (typeof percent !== 'undefined' && percent != ""){
+			showRow[-i+23] = true;
+			percent = (Math.round(percent * 10000) / 100) + "%";
+			mainTableTextNodes[-i+23][2].nodeValue = percent;
+		}
+	}
+	mainTableTextNodes[24][0].nodeValue = queueTotals;
+	mainTableTextNodes[24][1].nodeValue = finishedTotals;
+	
+	//Show or hide rows
+	for (let i = 0; i < 24; i++){
+		if (showRow[i]) mainTableRows[i+1].style.display = '';
+		else mainTableRows[i+1].style.display = 'none';
+	}
+}
+
+//Callback function for request when loading data from Google Sheet
+function onLoadRefreshDataFromGoogleSheet(){
+	countsBeingRequested = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			buildTable(response.data);
+			console.log('Data request successful.');
+			
+			let d = new Date();
+			let hours = d.getHours();
+			
+			let doRefresh = (d.getHours() > 5 && d.getHours() < 18);
+			
+			let ampm = hours >= 12 ? 'PM' : 'AM';
+			if (hours > 12) hours -= 12;
+			if (hours == 0) hours = 12;
+			let minutes = d.getMinutes();
+			if (minutes < 10) minutes = "0" + minutes;
+			
+			d.setTime(d.getTime() + (1000*60*10));
+			let hours_next = d.getHours();
+			let ampm_next = hours_next >= 12 ? 'PM' : 'AM';
+			if (hours_next > 12) hours_next -= 12;
+			if (hours_next == 0) hours_next = 12;
+			let minutes_next = d.getMinutes();
+			if (minutes_next < 10) minutes_next = "0" + minutes_next;
+			
+			mainTableFooter.innerHTML = "Refreshed at " + hours + ":" + minutes + " " + ampm + ".";
+			
+			loadedCountString = this.responseText;
+		}
+	}
+	catch (e){
+		mainTableFooter.innerHTML = "Failed to load data.";
+		console.log('Data request unsuccessful: ' + this.responseText);
+		console.log(e.description);
+	}
+}
+
+//Function for requesting data from Google Sheet
+function refreshDataFromGoogleSheet(){
+	if (!countsBeingRequested){
+		console.log('Getting data from Google Sheet...');
+		var xhr = new XMLHttpRequest();
+		xhr.open("post", _googleSheetURL, true);
+		xhr.setRequestHeader('Content-Type', 'text/plain');
+		xhr.onload = onLoadRefreshDataFromGoogleSheet;
+		xhr.send(JSON.stringify({'postType': 'GetData'}));
+		mainTableFooter.innerHTML = "Loading data...";
+		countsBeingRequested = true;
+		if (refreshTimeout != -1){
+			refreshTimeout = -1;
+			clearTimeout(refreshTimeout);
+		}
+		let d = new Date();
+		if (d.getHours() > 5 && d.getHours() < 18){
+			d = new Date(Date.now() + 1000*60*60);
+			d.setMinutes(10);
+			d.setSeconds(0);
+			refreshTimeout = setTimeout(refreshDataFromGoogleSheet, d.getTime() - Date.now());
+		}
+	}
+}
+</script>
+<h1>V1 Metrics</h1>
+<div>
+	<table id="table_main_counts" class="main_table">
+		<tr id="table_row_main_0">
+			<th></th>
+			<th>Total Available</th>
+			<th>Qty Checked</th>
+			<th>%</th>
+		</tr>
+		<tr id="table_row_main_1" style="display:none"><th>11 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_2" style="display:none"><th>10 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_3" style="display:none"><th>9 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_4" style="display:none"><th>8 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_5" style="display:none"><th>7 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_6" style="display:none"><th>6 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_7" style="display:none"><th>5 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_8" style="display:none"><th>4 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_9" style="display:none"><th>3 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_10" style="display:none"><th>2 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_11" style="display:none"><th>1 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_12" style="display:none"><th>12 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_13" style="display:none"><th>11 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_14" style="display:none"><th>10 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_15" style="display:none"><th>9 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_16" style="display:none"><th>8 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_17" style="display:none"><th>7 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_18" style="display:none"><th>6 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_19" style="display:none"><th>5 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_20" style="display:none"><th>4 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_21" style="display:none"><th>3 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_22" style="display:none"><th>2 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_23" style="display:none"><th>1 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_24" style="display:none"><th>12 AM</th><td></td><td></td><td class="cell_yellow"></td></tr>
+		<tr id="table_row_main_25"><th class="cell_total">Totals</th><td class="cell_orange"></td><td class="cell_orange"></td><td></td></tr>
+	</table>
+	<span id="table_footer">Loading data...</span>
+	<br/>
+	<a class="button_small" onclick="refreshDataFromGoogleSheet()">Refresh</a>
+	<br/>
+</div>
+</body>
+</html>
