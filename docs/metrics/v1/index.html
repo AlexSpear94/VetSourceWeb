@@ -94,7 +94,7 @@ function buildTable(data) {
 	if (data == 0) data = new Array(0);
 	
 	//Totals variables
-	let queueTotals = 0;
+	let totalTotals = 0;
 	let finishedTotals = 0;
 
 	let showRow = new Array(24);
@@ -110,16 +110,16 @@ function buildTable(data) {
 		}
 		workingHour = -workingHour + 23;
 		showRow[workingHour] = false;
-		let queue = parseInt(data[i].Queue);
-		if (typeof queue !== 'undefined' && !isNaN(queue)){
+		let total = parseInt(data[i].Total);
+		if (typeof total !== 'undefined' && !isNaN(total)){
 			showRow[workingHour] = true;
-			mainTableTextNodes[workingHour][0].nodeValue = queue;
-			queueTotals += queue;
+			mainTableTextNodes[workingHour][1].nodeValue = total;
+			totalTotals += total;
 		}
 		let finished = parseInt(data[i].Finished);
 		if (typeof finished !== 'undefined' && !isNaN(finished)){
 			showRow[workingHour] = true;
-			mainTableTextNodes[workingHour][1].nodeValue = finished;
+			mainTableTextNodes[workingHour][0].nodeValue = finished;
 			finishedTotals += parseInt(finished);
 		}
 		let percent = data[i].Percentage;
@@ -129,8 +129,8 @@ function buildTable(data) {
 			mainTableTextNodes[workingHour][2].nodeValue = percent;
 		}
 	}
-	mainTableTextNodes[24][0].nodeValue = queueTotals;
-	mainTableTextNodes[24][1].nodeValue = finishedTotals;
+	mainTableTextNodes[24][1].nodeValue = totalTotals;
+	mainTableTextNodes[24][0].nodeValue = finishedTotals;
 	
 	//Show or hide rows
 	for (let i = 0; i < 24; i++){
@@ -209,8 +209,8 @@ function refreshDataFromGoogleSheet(){
 	<table id="table_main_counts" class="main_table">
 		<tr id="table_row_main_0">
 			<th></th>
-			<th>Total Available</th>
 			<th>Qty Checked</th>
+			<th>Total Available</th>
 			<th>%</th>
 		</tr>
 		<tr id="table_row_main_1" style="display:none"><th>11 PM</th><td></td><td></td><td class="cell_yellow"></td></tr>
