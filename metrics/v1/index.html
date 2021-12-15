@@ -101,24 +101,32 @@ function buildTable(data) {
 	
 	//Itterate through cells and data
 	for (let i = 0; i < data.length; ++i){
-		showRow[-i+23] = false;
+		var workingHour = 0;
+		for (let j = 0; i < 24; j++){
+			if (data[i].Hour == "h"+j){
+				workingHour = j;
+				break;
+			}
+		}
+		workingHour = -workingHour + 23;
+		showRow[workingHour] = false;
 		let queue = parseInt(data[i].Queue);
 		if (typeof queue !== 'undefined' && !isNaN(queue)){
-			showRow[-i+23] = true;
-			mainTableTextNodes[-i+23][0].nodeValue = queue;
+			showRow[workingHour] = true;
+			mainTableTextNodes[workingHour][0].nodeValue = queue;
 			queueTotals += queue;
 		}
 		let finished = parseInt(data[i].Finished);
 		if (typeof finished !== 'undefined' && !isNaN(finished)){
-			showRow[-i+23] = true;
-			mainTableTextNodes[-i+23][1].nodeValue = finished;
+			showRow[workingHour] = true;
+			mainTableTextNodes[workingHour][1].nodeValue = finished;
 			finishedTotals += parseInt(finished);
 		}
 		let percent = data[i].Percentage;
 		if (typeof percent !== 'undefined' && percent != ""){
-			showRow[-i+23] = true;
+			showRow[workingHour] = true;
 			percent = (Math.round(percent * 10000) / 100) + "%";
-			mainTableTextNodes[-i+23][2].nodeValue = percent;
+			mainTableTextNodes[workingHour][2].nodeValue = percent;
 		}
 	}
 	mainTableTextNodes[24][0].nodeValue = queueTotals;
@@ -188,8 +196,8 @@ function refreshDataFromGoogleSheet(){
 		}
 		let d = new Date();
 		if (d.getHours() > 5 && d.getHours() < 18){
-			d = new Date(Date.now() + 1000*60*50);
-			d.setMinutes(10);
+			d = new Date(Date.now() + 1000*60*40);
+			d.setMinutes(20);
 			d.setSeconds(0);
 			refreshTimeout = setTimeout(refreshDataFromGoogleSheet, d.getTime() - Date.now());
 		}
