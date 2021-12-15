@@ -20,14 +20,14 @@ button{
 	border-color: white;
 	color: white;
 	font-size: large;
-	margin: 3px;
-	padding: 3px;
+	margin: .18em;
+	padding: .18em;
 	cursor: pointer;
 }
 button.buttonMain{
 	font-size: xx-large;
-	margin: 8px;
-	padding: 8px;
+	margin: .24em;
+	padding: .24em;
 }
 button:disabled,
 button[disabled]{
@@ -44,7 +44,7 @@ input{
 	border-color: white;
 	color: white;
 	text-align: center;
-	max-width: 100px;
+	max-width: 6em;
 	cursor: text;
 }
 input.large{
@@ -52,20 +52,22 @@ input.large{
 }
 input.wide{
 	font-size: 150%;
-	max-width: 300px;
+	max-width: 18em;
 }
 td,th{
-	padding: 10px;
+	padding: .6em;
 	border-color: gray;
-	border-width: 1px;
+	border-width: .06em;
 	border-style: solid;
-	max-width: 300px;
+	max-width: 18em;
 }
 td.large{
 	font-size: 150%;
 }
 table{
 	display: inline-block;
+	max-height: 40em;
+	overflow-y: scroll;
 }
 #divOverlay{
 	position: fixed;
@@ -97,6 +99,35 @@ table{
 	transform: translate(-50%, -40%);
 	background-color: #000000;
 }
+@media print {
+body,input,td,th{
+	background-color: white;
+	color: black;
+	border-width: 0em;
+	font-size: 12pt;
+}
+td,th{
+	padding: .1em;
+	max-width: 15em;
+}
+input.wide,input.large{
+	max-width: 4em;
+}
+h1,h2,td.large,input.wide,input.large{
+	font-size: 12pt;
+}
+table{
+	display: block;
+	max-height: unset;
+	overflow-y: auto;
+}
+tr{
+	break-inside: avoid;
+}
+.noPrint,button{
+	display: none !important;
+}
+}
 </style>
 </head>
 <body onload="initPage()">
@@ -111,6 +142,7 @@ function initPage(){
 	editingProductIndex = 0;
 	tableInputs = new Array();
 	isWaitingOnNetwork = false;
+	hasUnsavedChanges = false;
 
 	currentHash = "";
 
@@ -174,6 +206,8 @@ function unloadCurrentPage(){
 			document.getElementById("divBinTable").style.display = "none";
 			document.getElementById("divHeaderButtons").style.display = "none";
 			document.getElementById("divFooterButtons").style.display = "none";
+			document.getElementById("buttonSetZero").style.display = "none";
+			document.getElementById("buttonSetBins").style.display = "none";
 			break;
 		case 3:
 			document.getElementById("divInventoryTable").style.display = "none";
@@ -211,6 +245,7 @@ function unloadCurrentPage(){
 
 function loadPage(page){
 	setOverlay(false,null,false);
+	hasUnsavedChanges = false;
 	if (isPageLoaded) unloadCurrentPage();
 	currentPage = page;
 	switch (currentPage){
@@ -237,6 +272,8 @@ function loadPage(page){
 		document.getElementById("divBinTable").style.display = "initial";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
+		document.getElementById("buttonSetZero").style.display = "inline";
+		document.getElementById("buttonSetBins").style.display = "inline";
 		break;
 	case 3://View Inventory
 		currentHash = "#viewinventory";
@@ -487,12 +524,37 @@ function onSubmitButtonClick(){
 
 function onBackButtonClick(){
 	if (isWaitingOnNetwork) return;
+	if (hasUnsavedChanges){
+		if (!confirm("Leave the page? There may be unsaved changes.")) return;
+	}
 	loadPage(5);
+}
+
+function onHomeButtonClick(){
+	if (isWaitingOnNetwork) return;
+	if (hasUnsavedChanges){
+		if (!confirm("Leave the page? There may be unsaved changes.")) return;
+	}
+	loadPage(0);
+}
+
+function onSetZeroButtonClick(){
+	if (isWaitingOnNetwork) return;
+	for (var i = 0; i < tableInputs.length; i++){
+		tableInputs[i].value = 0;
+	}
+}
+
+function onSetBinButtonClick(){
+	if (isWaitingOnNetwork) return;
+	for (var i = 0; i < tableInputs.length; i++){
+		tableInputs[i].value = tableInputs[i].binsNeeded;
+	}
 }
 
 function onButtonRemoveProductClick(productID){
 	if (isWaitingOnNetwork) return;
-	if (confirm("Are you sur you want to remove this product? This cannot be undone.")){
+	if (confirm("Are you sure you want to remove this product? This cannot be undone.")){
 		var outData = new Array();
 		outData.push({"ID": productID});
 		submitRemoveProductToSheet(outData);
@@ -529,6 +591,8 @@ function createTextField(defaultValue, className){
 	elem.type = 'text';
 	if (defaultValue != "") elem.value = defaultValue;
 	if (className != "") elem.className = className;
+	elem.addEventListener("keyup", onInputKeyUp);
+	elem.addEventListener("change",onChange);
 	return elem;
 }
 
@@ -540,7 +604,35 @@ function createNumberField(min, max, step, defaultValue, className){
 	elem.step = step;
 	if (typeof defaultValue === "number") elem.value = defaultValue;
 	if (className != "") elem.className = className;
+	elem.addEventListener("keyup", onInputKeyUp);
+	elem.addEventListener("change",onChange);
 	return elem;
+}
+
+function onChange(){
+	hasUnsavedChanges = true;
+}
+
+function onInputKeyUp(){
+	if (event.keyCode === 13) {// Number 13 is the "Enter" key on the keyboard
+		// Cancel the default action
+		event.preventDefault();
+		
+		focusNextInput(this);
+	}
+}
+
+function focusNextInput(current){
+	console.log("tab index: " + current.tab_index);
+    for (i = 0; i < tableInputs.length; i++){
+        if (tableInputs[i].tab_index - current.tab_index == 1){
+            tableInputs[i].focus();
+            if (tableInputs[i].type == "text" || tableInputs[i].type == "number"){
+                tableInputs[i].select();
+            }
+			return;
+        }
+    }
 }
 
 function buildPickTable(){
@@ -553,6 +645,7 @@ function buildPickTable(){
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
 		var input = createNumberField(0, 1000000, 1, "", "");
+		input.tab_index = i;
 		tableInputs.push(input);
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
 		table.appendChild(tableRow);
@@ -563,6 +656,7 @@ function buildBinTable(){
 	var table = document.getElementById('tableBin').children[0];
 	tableInputs = new Array();
 	emptyTableExceptFirstRow(table);
+	var tab_index = 0;
 	for (var i = 0; i < tableData.length; i++){
 		if (tableData[i].BINS_NEEDED <= 0) continue;
 		var tableRow = document.createElement('tr');
@@ -570,18 +664,25 @@ function buildBinTable(){
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
-		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PAR_LEVEL,""));
+		var elem = createElementWithTextNode('td',tableData[i].PAR_LEVEL,"");
+		elem.className = "noPrint";
+		tableRow.appendChild(elem);
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BIN_QTY,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BINS_NEEDED,"large"));
-		var input = createNumberField(0, 1000000, 1, tableData[i].BINS_NEEDED, "large");
+		var input = createNumberField(0, 1000000, 1, "", "large");
 		input.productID = tableData[i].ID;
+		input.binsNeeded = tableData[i].BINS_NEEDED;
+		input.tab_index = tab_index;
 		tableInputs.push(input);
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
 		var input = createNumberField(0, 1000000, 1, "", "large");
 		input.productID = tableData[i].ID;
+		input.binsNeeded = 0;
+		input.tab_index = tab_index + 1000;
 		tableInputs.push(input);
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
 		table.appendChild(tableRow);
+		tab_index++;
 	}
 }
 
@@ -626,6 +727,7 @@ function buildCycleCountTable(){
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
 		var input = createNumberField(0, 1000000, 1, tableData[i].IN_RAPIDFILL, "large");
 		tableInputs.push(input);
+		input.tab_index = i;
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
 		table.appendChild(tableRow);
 	}
@@ -932,10 +1034,12 @@ function webRequest(url, data, loadCallback){
 <div class="mainContent">
 	<h1 class="title">Rapidfill Inventory</h1>
 	<h2 id="subTitle">Loading... Please wait a moment.</h2>
-	<p id="refreshedLabel"></p>
+	<p id="refreshedLabel" class="noPrint"></p>
 	<div id="divHeaderButtons" style="display: none;">
-		<button onclick="loadPage(0);">Back to Home</button>
-		<button id="buttonAddProduct" onclick="loadPage(8); style">Add New Product</button>
+		<button onclick="onHomeButtonClick();">Back to Home</button>
+		<button id="buttonAddProduct" onclick="loadPage(8);" style="display: none;">Add New Product</button>
+		<button id="buttonSetZero" onclick="onSetZeroButtonClick();" style="display: none;">Set All 0s</button>
+		<button id="buttonSetBins" onclick="onSetBinButtonClick();" style="display: none;">Set All Match-Bin</button>
 	</div>
 	<div id="divMainMenuButtons" style="display: none;">
 		<button class="buttonMain" onclick="loadPage(1);" id="buttonMainRound" title="Enter data for a round and deduct from inventory.">Input Round</button>
@@ -967,7 +1071,7 @@ function webRequest(url, data, loadCallback){
 				<th>Name</th>
 				<th>Location</th>
 				<th>In Rapidfill</th>
-				<th>Par Level</th>
+				<th class="noPrint">Par Level</th>
 				<th>Qty Per Bin</th>
 				<th>Bins Needed</th>
 				<th>Bins Picked<br/>(Including Partial)</th>
@@ -1010,7 +1114,7 @@ function webRequest(url, data, loadCallback){
 		</table>
 	</div>
 	<div id="divEditSingleProduct" style="display: none;">
-		<table id="tableEditSingleProduct">
+		<table id="tableEditSingleProduct" style="overflow-y: visible;">
 			<tr>
 				<th>SKU</th>
 				<th>Name</th>
@@ -1021,7 +1125,7 @@ function webRequest(url, data, loadCallback){
 		</table>
 	</div>
 	<div id="divAddProduct" style="display: none;">
-		<table id="tableAddProduct">
+		<table id="tableAddProduct" style="overflow-y: visible;">
 			<tr>
 				<th>SKU</th>
 				<th>Name</th>
