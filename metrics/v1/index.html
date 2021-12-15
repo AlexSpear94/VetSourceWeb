@@ -188,7 +188,7 @@ function refreshDataFromGoogleSheet(){
 		}
 		let d = new Date();
 		if (d.getHours() > 5 && d.getHours() < 18){
-			d = new Date(Date.now() + 1000*60*60);
+			d = new Date(Date.now() + 1000*60*50);
 			d.setMinutes(10);
 			d.setSeconds(0);
 			refreshTimeout = setTimeout(refreshDataFromGoogleSheet, d.getTime() - Date.now());
