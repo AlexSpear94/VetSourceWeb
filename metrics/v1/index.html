@@ -52,6 +52,7 @@ function initPage(){
 	
 	countsBeingRequested = false;
 	refreshTimeout = -1;
+	webRetryTimeout = -1;
 	
 	initTable();
 	refreshDataFromGoogleSheet();
@@ -142,6 +143,10 @@ function buildTable(data) {
 //Callback function for request when loading data from Google Sheet
 function onLoadRefreshDataFromGoogleSheet(){
 	countsBeingRequested = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -181,18 +186,19 @@ function onLoadRefreshDataFromGoogleSheet(){
 
 //Function for requesting data from Google Sheet
 function refreshDataFromGoogleSheet(){
-	if (!countsBeingRequested){
+	if (!countsBeingRequested || webRetryTimeout != -1){
 		console.log('Getting data from Google Sheet...');
 		var xhr = new XMLHttpRequest();
 		xhr.open("post", _googleSheetURL, true);
 		xhr.setRequestHeader('Content-Type', 'text/plain');
 		xhr.onload = onLoadRefreshDataFromGoogleSheet;
+		webRetryTimeout = setTimeout(refreshDataFromGoogleSheet, 1000*10);
 		xhr.send(JSON.stringify({'postType': 'GetData'}));
 		mainTableFooter.innerHTML = "Loading data...";
 		countsBeingRequested = true;
 		if (refreshTimeout != -1){
-			refreshTimeout = -1;
 			clearTimeout(refreshTimeout);
+			refreshTimeout = -1;
 		}
 		let d = new Date();
 		if (d.getHours() > 5 && d.getHours() < 18){

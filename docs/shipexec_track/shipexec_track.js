@@ -12,7 +12,7 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.6.1";
+	shExTrVersion = "1.6.2";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedPages = ['http://shipping.vetpdx.com/ShipExec/Content/RateShip/Manifest.aspx', 'http://10.138.0.18/ShipExec/Content/RateShip/Manifest.aspx'];
@@ -21,6 +21,7 @@ function shExTrInit(){
 	shExTrLocationName = "";
 
 	shExTrHasRefreshedCounts = false;
+	shExTrRefreshTimeout = -1;
 	
 	//Check the URL to see if it is the ShipExec shipping page.
 	if (typeof shExTrDebugMode === 'undefined'){
@@ -916,9 +917,10 @@ function shExTrTableCellCSSGrandTotal(cell) {
 //Function for requesting usernames form Google Sheet
 function shExTrRefreshCountsFromGoogleSheet(){
 	shExTrHasRefreshedCounts = true;
-	if (!shExTrCountsBeingRequested){
+	if (!shExTrCountsBeingRequested || shExTrRefreshTimeout != -1){
 		console.log('Getting counts from Google Sheet...');
 		var xhr = new XMLHttpRequest();
+		shExTrRefreshTimeout = setTimeout(shExTrRefreshCountsFromGoogleSheet, 1000*10);
 		xhr.open("post", shExTrGoogleSheetURL, true);
 		xhr.setRequestHeader('Content-Type', 'text/plain');
 		xhr.onload = shExTrOnLoadRefreshCountsFromGoogleSheet;
@@ -1069,6 +1071,10 @@ function shExTrOnInputLoadChange(event){
 //Callback function for request when loading usernames from Google Sheet
 function shExTrOnLoadRefreshCountsFromGoogleSheet(){
 	shExTrCountsBeingRequested = false;
+	if (shExTrRefreshTimeout != -1){
+		clearTimeout(shExTrRefreshTimeout)
+		shExTrRefreshTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
