@@ -12,13 +12,15 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.5.0 Dev";
+	shExTrVersion = "1.6.0 Dev";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedPages = ['http://shipping.vetpdx.com/ShipExec/Content/RateShip/Manifest.aspx', 'http://10.138.0.18/ShipExec/Content/RateShip/Manifest.aspx'];
 	
 	shExTrStationName = "shipexec";
-	shExTrLocationName = "604";
+	shExTrLocationName = "";
+
+	shExTrHasRefreshedCounts = false;
 	
 	shExTrDebugMode = true;
 	
@@ -111,7 +113,7 @@ function shExTrInit(){
 	//Create Username Label
 	shExTrUserLabel = document.createElement('span');
 	shExTrUserLabel.style.marginLeft = '5px';
-	shExTrUserLabel.appendChild(document.createTextNode('CASI Username:'));
+	shExTrUserLabel.appendChild(document.createTextNode('Username:'));
 	
 	//Create Password Label
 	shExTrPassLabel = document.createElement('span');
@@ -301,10 +303,8 @@ function shExTrInit(){
 	if (shExTrIsLoggedIn) shExTrSetVisualAsLoggedIn();
 	else shExTrSetVisualAsLoggedOut();
 	
-	//Load counts from cookies.
+	//Load data from cookies.
 	shExTrLoadUnsentCounts();
-	
-	//Load the personal count from cookies.
 	shExTrPersonalDataLoadAll();
 	
 	//Load list of valid usernames from Google Sheet
@@ -316,7 +316,8 @@ function shExTrInit(){
 	window.setTimeout(shExTrDoCountsPost,5*1000);
 	
 	//Request counts from Google Sheet initially.
-	shExTrRefreshCountsFromGoogleSheet();
+	shExTrLoadLocation();
+	if (shExTrLocationName != "") shExTrRefreshCountsFromGoogleSheet();
 	
 	//Override the loadSuccess function used by ShipExec.
 	loadSuccess = shExLoadSuccess;
@@ -509,7 +510,7 @@ function shExLoadSuccess(result){
 					},300);
 				}
 				else{
-					$('#' + status_lbl_id).text("Load Successful. Please enter your CASI username to autoship.").css('color', 'red');
+					$('#' + status_lbl_id).text("Load Successful. Please enter your username to autoship.").css('color', 'red');
 				}
 			}
 			//------End Auto-Ship Block------
@@ -845,8 +846,6 @@ function shExTrBuildTable(data) {
 		}
 		//Cell CSS.
 		shExTrTableCellCSSNormal(shExTrTableCells[i][0]);
-		//if (data[i-1].station == "casi") shExTrTableCells[i][0].style.color = 'yellow'; 
-		//if (data[i-1].station == "hotseat") shExTrTableCells[i][0].style.color = 'orange'; 
 		for (let j = 1; j < 25; ++j){
 			shExTrTableCellCSSNormal(shExTrTableCells[i][j]);
 		}
@@ -876,48 +875,6 @@ function shExTrClearTable() {
 	for (let i = 0; i < 26; ++i){
 		for (let j = 1; j < shExTrTableCells.length; ++j){
 			shExTrTableCells[j][i].innerHTML = "";
-		}
-	}
-}
-
-//Utility function for sorting table data.
-function shExTrSortSwitchDatas(data, index){
-	data.splice(index+1,0,data.splice(index,1)[0]);
-}
-
-//Utility function for sorting table data.
-function shExTrSortShouldDatasSwitch(ldata, rdata){
-	let lvalue = 0;
-	let rvalue = 0;
-	switch (ldata.station){
-	case 'casi':
-		lvalue = 1;
-		break;
-	case 'hotseat':
-		lvalue = 2;
-		break;
-	}
-	switch (rdata.station){
-	case 'casi':
-		rvalue = 1;
-		break;
-	case 'hotseat':
-		rvalue = 2;
-		break;
-	}
-	return (lvalue > rvalue);
-}
-
-//Function for bubble sorting the table data by station.
-function shExTrSortDataByStation(data){
-	if (data.length > 1){
-		for (let i = 0; i < data.length - 1; i++){
-			if (shExTrSortShouldDatasSwitch(data[i], data[i+1])){
-				shExTrSortSwitchDatas(data,i,i+1);
-				for (let j = i-1; j >= 0; j--){
-					if (shExTrSortShouldDatasSwitch(data[j], data[j+1])) shExTrSortSwitchDatas(data,j,j+1);
-				}
-			}
 		}
 	}
 }
@@ -960,6 +917,7 @@ function shExTrTableCellCSSGrandTotal(cell) {
 //#region Network
 //Function for requesting usernames form Google Sheet
 function shExTrRefreshCountsFromGoogleSheet(){
+	shExTrHasRefreshedCounts = true;
 	if (!shExTrCountsBeingRequested){
 		console.log('Getting counts from Google Sheet...');
 		var xhr = new XMLHttpRequest();
@@ -1028,15 +986,18 @@ function shExTrOnButtonLoginClick(){
 	let isNameValid = false;
 	let tempname = shExTrInputUser.value.toLowerCase()
 	for (let i = 0; i < shExTrValidUsernames.length; i++){
-		if (tempname == shExTrValidUsernames[i]){
+		if (tempname == shExTrValidUsernames[i].username){
 			isNameValid = true;
+			shExTrLocationName = shExTrValidUsernames[i].location;
 			break;
 		}
 	}
 	if (!isNameValid){
-		$('#' + status_lbl_id).text('Invalid username! Please enter your CASI username.').css('color', 'red');
+		$('#' + status_lbl_id).text('Invalid username! Please enter your username.').css('color', 'red');
 		return;
 	}
+	shExTrSaveLocation();
+	if (!shExTrHasRefreshedCounts) shExTrRefreshCountsFromGoogleSheet();
 	
 	shExTrIsLoggedIn = true;
 	shExTrLoginName = tempname;
@@ -1152,8 +1113,9 @@ function shExTrLoadUsernamesResponse(){
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
 			let names = response.names.split(',');
+			let locations = response.locations.split(',');
 			for (let i = 0; i < names.length; i++){
-				if (names[i] != '') shExTrValidUsernames.push(names[i]);
+				if (names[i] != '') shExTrValidUsernames.push({'username':names[i],'location':locations[i]});
 			}
 			console.log('Usernames request successful.');
 		}
@@ -1245,7 +1207,7 @@ function shExTrLoadPostRequest() {
 	}
 	catch (e){
 		//Cookie error, just ignore
-		console.log('CasiTrack: Error loading post request from cookies.');
+		console.log('ShipExecTrack: Error loading post request from cookies.');
 	}
 }
 
@@ -1258,6 +1220,31 @@ function shExTrSavePostRequest() {
 	let expires = 'expires='+ d.toUTCString();
 	
 	document.cookie = cname + '=' + JSON.stringify(shExTrPostRequest) + ';' + expires + '; path=/';
+}
+
+//Function for loading the current location from cookies.
+function shExTrLoadLocation() {
+	try{
+		let c = shExTrGetCookie('shExTrLocationName');
+		if (c != '' && c != 'null'){
+			shExTrLocationName = c;
+		}
+	}
+	catch (e){
+		//Cookie error, just ignore
+		console.log('ShipExecTrack: Error loading location from cookies.');
+	}
+}
+
+//Function for saving the current location to cookies.
+function shExTrSaveLocation() {
+	//Compute cookie expiry time for 1 year from now, and cookie name
+	const d = new Date();
+	let cname = 'shExTrLocationName';
+	d.setTime(d.getTime() + (365*24*60*60*1000));
+	let expires = 'expires='+ d.toUTCString();
+	
+	document.cookie = cname + '=' + JSON.stringify(shExTrLocationName) + ';' + expires + '; path=/';
 }
 
 //Use this function to save personal data to cookies.
