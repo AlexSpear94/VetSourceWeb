@@ -988,7 +988,10 @@ function shExTrOnButtonLoginClick(){
 	for (let i = 0; i < shExTrValidUsernames.length; i++){
 		if (tempname == shExTrValidUsernames[i].username){
 			isNameValid = true;
-			shExTrLocationName = shExTrValidUsernames[i].location;
+			if (shExTrLocationName != shExTrValidUsernames[i].location){
+				shExTrLocationName = shExTrValidUsernames[i].location;
+				shExTrRefreshCountsFromGoogleSheet();
+			}
 			break;
 		}
 	}
@@ -1122,6 +1125,7 @@ function shExTrLoadUsernamesResponse(){
 	}
 	catch (e){
 		console.log('Usernames request unsuccessful: ' + this.responseText);
+		console.log(e);
 	}
 }
 //#endregion
