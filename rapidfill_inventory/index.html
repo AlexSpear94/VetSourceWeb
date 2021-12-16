@@ -44,7 +44,7 @@ input{
 	border-color: white;
 	color: white;
 	text-align: center;
-	max-width: 6em;
+	max-width: 3.5em;
 	cursor: text;
 }
 input.large{
@@ -53,6 +53,30 @@ input.large{
 input.wide{
 	font-size: 150%;
 	max-width: 18em;
+}
+input.checkbox{
+	width: 2em;
+	height: 2em;
+	-webkit-appearance: none;
+	background-color: #000000;
+	border: .1em solid #B0B0B0;
+	padding: .6em;
+	border-radius: .2em;
+	display: inline-block;
+	position: relative;
+	cursor: pointer;
+}
+input.checkbox:checked:after {
+	content: '\2714';
+	font-size: 1.5em;
+	position: absolute;
+	top: -.15em;
+	left: .2em;
+	color: #FFFFFF;
+}
+input.checkbox:disabled {
+	background-color: #202020;
+	cursor: default;
 }
 td,th{
 	padding: .6em;
@@ -64,10 +88,14 @@ td,th{
 td.large{
 	font-size: 150%;
 }
+th.thin{
+	max-width: 5em;
+}
 table{
 	display: inline-block;
 	max-height: 40em;
 	overflow-y: scroll;
+	border-collapse: collapse;
 }
 #divOverlay{
 	position: fixed;
@@ -100,11 +128,11 @@ table{
 	background-color: #000000;
 }
 @media print {
-body,input,td,th{
+body,input{
 	background-color: white;
 	color: black;
 	border-width: 0em;
-	font-size: 12pt;
+	font-size: 10pt;
 }
 td,th{
 	padding: .1em;
@@ -114,7 +142,7 @@ input.wide,input.large{
 	max-width: 4em;
 }
 h1,h2,td.large,input.wide,input.large{
-	font-size: 12pt;
+	font-size: 10pt;
 }
 table{
 	display: block;
@@ -126,6 +154,16 @@ tr{
 }
 .noPrint,button{
 	display: none !important;
+}
+input.checkbox{
+	background-color: #FFFFFF;
+	border-width: 0em;
+}
+input.checkbox:checked:after {
+	color: #000000;
+}
+input.checkbox:disabled {
+	background-color: #FFFFFF;
 }
 }
 </style>
@@ -143,6 +181,8 @@ function initPage(){
 	tableInputs = new Array();
 	isWaitingOnNetwork = false;
 	hasUnsavedChanges = false;
+
+	webRetryTimeout = -1;
 
 	currentHash = "";
 
@@ -163,6 +203,7 @@ function initPage(){
 function onDataLoaded(){
 	var disableBins = true;
 	var disablePreviousRound = true;
+	var disableReceiving = true;
 	for (var i = 0; i < tableData.length; i++){
 		if (tableData[i].BINS_NEEDED > 0){
 			disableBins = false;
@@ -172,6 +213,12 @@ function onDataLoaded(){
 	for (var i = 0; i < tableData.length; i++){
 		if (tableData[i].PREVIOUS_ROUND > 0){
 			disablePreviousRound = false;
+			break;
+		}
+	}
+	for (var i = 0; i < tableData.length; i++){
+		if (tableData[i].BINS_NEEDED_FROM_RECEIVING || tableData[i].TOOK_LAST_CASI_BIN || tableData[i].OOS_SHARE_WITH_CASI){
+			disableReceiving = false;
 			break;
 		}
 	}
@@ -186,6 +233,12 @@ function onDataLoaded(){
 		button.disabled = disablePreviousRound;
 		if (disablePreviousRound) button.title = "No previous round exists."
 		else button.title = "View the quantities of the latest round."
+	}
+	button = document.getElementById("buttonMainReceiving");
+	if (button.disabled != disableReceiving){
+		button.disabled = disableReceiving;
+		if (disableReceiving) button.title = "Receiving: No refills requested from Rapidfill."
+		else button.title = "Receiving: Manage refills and bins in rapidfill and on the Casi line."
 	}
 	loadPage(currentPage);
 
@@ -239,6 +292,12 @@ function unloadCurrentPage(){
 			document.getElementById("divFooterButtons").style.display = "none";
 			document.getElementById("buttonCancel").style.display = "none";
 			break;
+		case 9:
+			document.getElementById("divReceivingTable").style.display = "none";
+			document.getElementById("divHeaderButtons").style.display = "none";
+			document.getElementById("divFooterButtons").style.display = "none";
+			document.getElementById("buttonSetZero").style.display = "none";
+			document.getElementById("buttonSetBins").style.display = "none";
 	}
 	isPageLoaded = false;
 }
@@ -329,6 +388,17 @@ function loadPage(page){
 		document.getElementById("divFooterButtons").style.display = "block";
 		document.getElementById("buttonCancel").style.display = "inline";
 		break;
+	case 9://Receiving Refills
+		currentHash = "#receivingrefills";
+		if (window.location.hash != currentHash) window.location.hash = currentHash;
+		buildReceivingTable();
+		setSubtitle(true, "Receiving Refills");
+		document.getElementById("divReceivingTable").style.display = "initial";
+		document.getElementById("divHeaderButtons").style.display = "block";
+		document.getElementById("divFooterButtons").style.display = "block";
+		document.getElementById("buttonSetZero").style.display = "inline";
+		document.getElementById("buttonSetBins").style.display = "inline";
+		break;
 	}
 	isPageLoaded = true;
 }
@@ -407,7 +477,7 @@ function updateRefreshedLabel(){
 function onSubmitButtonClick(){
 	if (isWaitingOnNetwork) return;
 	switch (currentPage){
-	case 1:
+	case 1://New round
 		var outData = new Array();
 		for (var i = 0; i < tableData.length; i++){
 			try{
@@ -423,15 +493,18 @@ function onSubmitButtonClick(){
 		}
 		submitRoundToSheet(outData);
 		break;
-	case 2:
+	case 2://Bin Replenishment
 		var outData = new Array();
-		for (var i = 0; i < tableInputs.length; i++){
+		for (var i = 0; i < tableInputs.length / 4; i++){
 			try{
-				var num = parseInt(tableInputs[i*2].value);
-				if (!(num > 0)) continue;//Not to account for NaN
-				var numPartial = parseInt(tableInputs[i*2+1].value);
-				if (!(numPartial > 0)) numPartial = 0;//Not to account for NaN
-				outData.push({"ID":tableInputs[i].productID, "BIN_QTY":num, "PARTIAL_QTY":numPartial});
+				var num = parseInt(tableInputs[i*4].value);
+				if (isNaN(num) || num < 0) num = 0;
+				var numPartial = parseInt(tableInputs[i*4+1].value);
+				if (isNaN(numPartial) || numPartial < 0 || num == 0) numPartial = 0;
+				var requestBins = tableInputs[i*4+2].checked == true;
+				var tookLastBin = tableInputs[i*4+3].checked == true;
+				if (tableInputs[i*4+2].checked != tableInputs[i*4+2].initialValue || tableInputs[i*4+3].checked != tableInputs[i*4+3].initialValue || num > 0)
+					outData.push({"ID":tableInputs[i*4].productID, "BIN_QTY":num, "PARTIAL_QTY":numPartial, "BINS_NEEDED_FROM_RECEIVING":requestBins, "TOOK_LAST_CASI_BIN":tookLastBin});
 			}
 			catch (e){}
 		}
@@ -441,13 +514,16 @@ function onSubmitButtonClick(){
 		}
 		submitBinReplenishmentToSheet(outData);
 		break;
-	case 4:
+	case 4://Cycle Count
 		var outData = new Array();
 		for (var i = 0; i < tableData.length; i++){
 			try{
-				var num = parseInt(tableInputs[i].value);
-				if (!(num != tableData[i].IN_RAPIDFILL)) continue;//Double not to account for NaN
-				outData.push({"ID":tableData[i].ID, "QTY":num});
+				var num = parseInt(tableInputs[i*3].value);
+				if (isNaN(num)) num = tableData[i].IN_RAPIDFILL;
+				var requestBins = tableInputs[i*3+1].checked == true;
+				var tookLastBin = tableInputs[i*3+2].checked == true;
+				if (tableInputs[i*3+1].checked != tableInputs[i*3+1].initialValue || tableInputs[i*3+2].checked != tableInputs[i*3+2].initialValue || num != tableData[i].IN_RAPIDFILL)
+					outData.push({"ID":tableData[i].ID, "QTY":num, "BINS_NEEDED_FROM_RECEIVING":requestBins, "TOOK_LAST_CASI_BIN":tookLastBin});
 			}
 			catch (e){}
 		}
@@ -455,9 +531,10 @@ function onSubmitButtonClick(){
 			alert("Nothing to submit!");
 			return;
 		}
+		console.log(outData);
 		submitCycleCountToSheet(outData);
 		break;
-	case 6:
+	case 6://Edit Single Product
 		if (tableData[editingProductIndex].SKU == tableInputs[0].value &&
 			tableData[editingProductIndex].PRODUCT_NAME == tableInputs[1].value &&
 			tableData[editingProductIndex].LOCATION == tableInputs[2].value &&
@@ -483,7 +560,7 @@ function onSubmitButtonClick(){
 		}
 		catch (e){}
 		break;
-	case 8:
+	case 8://Add New Product
 		try{
 			if (tableInputs[0].value == ""){
 				alert("Enter a product SKU!");
@@ -517,6 +594,31 @@ function onSubmitButtonClick(){
 			submitAddProductToSheet(outData);
 		}
 		catch (e){}
+		break;
+	case 9://Receiving Refills
+		var outData = new Array();
+		for (var i = 0; i < tableInputs.length / 5; i++){
+			try{
+				var num = parseInt(tableInputs[i*5].value);
+				if (isNaN(num) || num < 0) num = 0;
+				var numPartial = parseInt(tableInputs[i*5+1].value);
+				if (isNaN(numPartial) || numPartial < 0 || num == 0) numPartial = 0;
+				var requestBins = tableInputs[i*5+2].checked == true;
+				var tookLastBin = tableInputs[i*5+3].checked == true;
+				var oos = tableInputs[i*5+4].checked == true;
+				if (tableInputs[i*5+2].checked != tableInputs[i*5+2].initialValue ||
+					tableInputs[i*5+3].checked != tableInputs[i*5+3].initialValue ||
+					tableInputs[i*5+4].checked != tableInputs[i*5+4].initialValue ||
+					num > 0)
+					outData.push({"ID":tableInputs[i*5].productID, "BIN_QTY":num, "PARTIAL_QTY":numPartial, "BINS_NEEDED_FROM_RECEIVING":requestBins, "TOOK_LAST_CASI_BIN":tookLastBin, "OOS_SHARE_WITH_CASI":oos});
+			}
+			catch (e){}
+		}
+		if (outData.length <= 0){
+			alert("Nothing to submit!");
+			return;
+		}
+		submitReceivingToSheet(outData);
 		break;
 	}
 	setOverlay(true,"Loading... Please wait.",false);
@@ -589,6 +691,7 @@ function createElementWithChildNode(element, child, className){
 function createTextField(defaultValue, className){
 	var elem = document.createElement('input');
 	elem.type = 'text';
+	elem.initialValue = defaultValue;
 	if (defaultValue != "") elem.value = defaultValue;
 	if (className != "") elem.className = className;
 	elem.addEventListener("keyup", onInputKeyUp);
@@ -602,10 +705,23 @@ function createNumberField(min, max, step, defaultValue, className){
 	elem.min = min;
 	elem.max = max;
 	elem.step = step;
+	elem.initialValue = defaultValue;
 	if (typeof defaultValue === "number") elem.value = defaultValue;
 	if (className != "") elem.className = className;
 	elem.addEventListener("keyup", onInputKeyUp);
 	elem.addEventListener("change",onChange);
+	return elem;
+}
+
+function createCheckbox(value, checked, disabled, className){
+	var elem = document.createElement('input');
+	elem.type = 'checkbox';
+	elem.value = value;
+	if (checked) elem.checked = true;
+	if (disabled) elem.disabled = true;
+	if (className != "") elem.className = className;
+	elem.initialValue = checked;
+	elem.addEventListener("onchange",onChange);
 	return elem;
 }
 
@@ -681,6 +797,67 @@ function buildBinTable(){
 		input.tab_index = tab_index + 1000;
 		tableInputs.push(input);
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		tab_index++;
+		var input = createCheckbox("requestBins", tableData[i].BINS_NEEDED_FROM_RECEIVING, false, "checkbox");
+		input.productID = tableData[i].ID;
+		input.tab_index = -1;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createCheckbox("tookLast", tableData[i].TOOK_LAST_CASI_BIN, false, "checkbox");
+		input.productID = tableData[i].ID;
+		input.tab_index = -1;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		tableRow.appendChild(createElementWithChildNode('td',createCheckbox("oos", tableData[i].OOS_SHARE_WITH_CASI, true, "checkbox"),""));
+		table.appendChild(tableRow);
+		tab_index++;
+	}
+}
+
+function buildReceivingTable(){
+	var table = document.getElementById('tableReceiving').children[0];
+	tableInputs = new Array();
+	emptyTableExceptFirstRow(table);
+	var tab_index = 0;
+	for (var i = 0; i < tableData.length; i++){
+		if (!tableData[i].BINS_NEEDED_FROM_RECEIVING && !tableData[i].TOOK_LAST_CASI_BIN && !tableData[i].OOS_SHARE_WITH_CASI) continue;
+		var tableRow = document.createElement('tr');
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
+		var elem = createElementWithTextNode('td',tableData[i].PAR_LEVEL,"");
+		elem.className = "noPrint";
+		tableRow.appendChild(elem);
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BIN_QTY,""));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BINS_NEEDED,"large"));
+		var input = createNumberField(0, 1000000, 1, "", "large");
+		input.productID = tableData[i].ID;
+		input.binsNeeded = tableData[i].BINS_NEEDED;
+		input.tab_index = tab_index;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createNumberField(0, 1000000, 1, "", "large");
+		input.productID = tableData[i].ID;
+		input.binsNeeded = 0;
+		input.tab_index = tab_index + 1000;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createCheckbox("requestBins", tableData[i].BINS_NEEDED_FROM_RECEIVING, false, "checkbox");
+		input.productID = tableData[i].ID;
+		input.tab_index = -1;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createCheckbox("tookLast", tableData[i].TOOK_LAST_CASI_BIN, false, "checkbox");
+		input.productID = tableData[i].ID;
+		input.tab_index = -1;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createCheckbox("oos", tableData[i].OOS_SHARE_WITH_CASI, false, "checkbox");
+		input.productID = tableData[i].ID;
+		input.tab_index = -1;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
 		table.appendChild(tableRow);
 		tab_index++;
 	}
@@ -711,6 +888,9 @@ function buildInventoryTable(){
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
+		tableRow.appendChild(createElementWithChildNode('td',createCheckbox("requestBins", tableData[i].BINS_NEEDED_FROM_RECEIVING, true, "checkbox"),""));
+		tableRow.appendChild(createElementWithChildNode('td',createCheckbox("tookLast", tableData[i].TOOK_LAST_CASI_BIN, true, "checkbox"),""));
+		tableRow.appendChild(createElementWithChildNode('td',createCheckbox("oos", tableData[i].OOS_SHARE_WITH_CASI, true, "checkbox"),""));
 		table.appendChild(tableRow);
 	}
 }
@@ -725,10 +905,21 @@ function buildCycleCountTable(){
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].IN_RAPIDFILL,""));
-		var input = createNumberField(0, 1000000, 1, tableData[i].IN_RAPIDFILL, "large");
+		var input = createNumberField(0, 1000000, 1, "", "large");
 		tableInputs.push(input);
 		input.tab_index = i;
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createCheckbox("requestBins", tableData[i].BINS_NEEDED_FROM_RECEIVING, false, "checkbox");
+		input.productID = tableData[i].ID;
+		input.tab_index = -1;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		var input = createCheckbox("tookLast", tableData[i].TOOK_LAST_CASI_BIN, false, "checkbox");
+		input.productID = tableData[i].ID;
+		input.tab_index = -1;
+		tableInputs.push(input);
+		tableRow.appendChild(createElementWithChildNode('td',input,""));
+		tableRow.appendChild(createElementWithChildNode('td',createCheckbox("oos", tableData[i].OOS_SHARE_WITH_CASI, true, "checkbox"),""));
 		table.appendChild(tableRow);
 	}
 }
@@ -839,6 +1030,10 @@ function buildAddProductTable(){
 //#region Network
 function onLoadDataFromSheet(){
 	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -866,6 +1061,10 @@ function loadDataFromSheet(){
 
 function onSubmitRoundToSheet(){
 	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -892,6 +1091,10 @@ function submitRoundToSheet(data){
 
 function onSubmitBinReplenishmentToSheet(){
 	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -916,8 +1119,42 @@ function submitBinReplenishmentToSheet(data){
 	webRequest(_googleSheetURL, JSON.stringify({"postType":"submitBinReplenishment", "data": data}), onSubmitBinReplenishmentToSheet);
 }
 
+function onSubmitReceivingToSheet(){
+	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			console.log('Request successful.');
+			tableData = response.data;
+			unloadCurrentPage();
+			currentPage = 0;
+			onDataLoaded();
+			return;
+		}
+		else{
+			console.log('Request unsuccessful.');
+		}
+	}
+	catch (e){
+		console.log('Request unsuccessful: ' + this.responseText);
+	}
+	setOverlay(true,"Submit failed. Please retry.", true);
+}
+
+function submitReceivingToSheet(data){
+	webRequest(_googleSheetURL, JSON.stringify({"postType":"submitReceiving", "data": data}), onSubmitReceivingToSheet);
+}
+
 function onSubmitCycleCountToSheet(){
 	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -944,6 +1181,10 @@ function submitCycleCountToSheet(data){
 
 function onSubmitEditProductToSheet(){
 	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -970,6 +1211,10 @@ function submitEditProductToSheet(data){
 
 function onSubmitAddProductToSheet(){
 	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -996,6 +1241,10 @@ function submitAddProductToSheet(data){
 
 function onSubmitRemoveProductToSheet(){
 	isWaitingOnNetwork = false;
+	if (webRetryTimeout != -1){
+		clearTimeout(webRetryTimeout)
+		webRetryTimeout = -1;
+	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -1023,6 +1272,7 @@ function submitRemoveProductToSheet(data){
 function webRequest(url, data, loadCallback){
 	console.log('Sending webrequest...');
 	isWaitingOnNetwork = true;
+	webRetryTimeout = setTimeout(webRequest, 1000*10, url, data, loadCallback);
 	var xhr = new XMLHttpRequest();
 	xhr.open("post", url, true);
 	xhr.setRequestHeader('Content-Type', 'text/plain');
@@ -1053,6 +1303,8 @@ function webRequest(url, data, loadCallback){
 		<button class="buttonMain" onclick="loadPage(4);" title="Edit on-hand counts in Rapid-Fill.">Cycle Count</button>
 		<br/>
 		<button class="buttonMain" onclick="loadPage(5);" title="Edit product details.">Edit Products</button>
+		<br/>
+		<button class="buttonMain" onclick="loadPage(9);" id="buttonMainReceiving" title="Receiving: Manage refills and bins in rapidfill and on the Casi line.">Receiving Refills</button>
 	</div>
 	<div id="divPickTable" style="display: none;">
 		<table id="tablePick">
@@ -1075,7 +1327,10 @@ function webRequest(url, data, loadCallback){
 				<th>Qty Per Bin</th>
 				<th>Bins Needed</th>
 				<th>Bins Picked<br/>(Including Partial)</th>
-				<th>Partial Bin QTY</th>
+				<th class="thin">Partial Bin QTY</th>
+				<th class="thin">Request bins from receiving?</th>
+				<th class="thin">Took last bin from Casi?</th>
+				<th class="thin">OOS - Share with Casi</th>
 			</tr>
 		</table>
 	</div>
@@ -1086,6 +1341,9 @@ function webRequest(url, data, loadCallback){
 				<th>Name</th>
 				<th>Location</th>
 				<th>Qty</th>
+				<th class="thin">Request bins from receiving?</th>
+				<th class="thin">Took last bin from Casi?</th>
+				<th class="thin">OOS - Share with Casi</th>
 			</tr>
 		</table>
 	</div>
@@ -1097,6 +1355,9 @@ function webRequest(url, data, loadCallback){
 				<th>Location</th>
 				<th>Qty</th>
 				<th>New Qty</th>
+				<th class="thin">Request bins from receiving?</th>
+				<th class="thin">Took last bin from Casi?</th>
+				<th class="thin">OOS - Share with Casi</th>
 			</tr>
 		</table>
 	</div>
@@ -1143,6 +1404,24 @@ function webRequest(url, data, loadCallback){
 				<th>Name</th>
 				<th>Location</th>
 				<th>Qty</th>
+			</tr>
+		</table>
+	</div>
+	<div id="divReceivingTable" style="display: none;">
+		<table id="tableReceiving">
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Location</th>
+				<th>In Rapidfill</th>
+				<th class="noPrint">Par Level</th>
+				<th>Qty Per Bin</th>
+				<th>Bins Needed</th>
+				<th>Bins Picked<br/>(Including Partial)</th>
+				<th class="thin">Partial Bin QTY</th>
+				<th class="thin">Request bins from receiving?</th>
+				<th class="thin">Took last bin from Casi?</th>
+				<th class="thin">OOS - Share with Casi</th>
 			</tr>
 		</table>
 	</div>
