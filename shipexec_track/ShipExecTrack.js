@@ -12,7 +12,7 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.6.0 Dev";
+	shExTrVersion = "1.6.1 Dev";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedPages = ['http://shipping.vetpdx.com/ShipExec/Content/RateShip/Manifest.aspx', 'http://10.138.0.18/ShipExec/Content/RateShip/Manifest.aspx'];
@@ -990,6 +990,7 @@ function shExTrOnButtonLoginClick(){
 			isNameValid = true;
 			if (shExTrLocationName != shExTrValidUsernames[i].location){
 				shExTrLocationName = shExTrValidUsernames[i].location;
+				shExTrSaveLocation();
 				shExTrRefreshCountsFromGoogleSheet();
 			}
 			break;
@@ -999,7 +1000,6 @@ function shExTrOnButtonLoginClick(){
 		$('#' + status_lbl_id).text('Invalid username! Please enter your username.').css('color', 'red');
 		return;
 	}
-	shExTrSaveLocation();
 	if (!shExTrHasRefreshedCounts) shExTrRefreshCountsFromGoogleSheet();
 	
 	shExTrIsLoggedIn = true;
@@ -1248,7 +1248,7 @@ function shExTrSaveLocation() {
 	d.setTime(d.getTime() + (365*24*60*60*1000));
 	let expires = 'expires='+ d.toUTCString();
 	
-	document.cookie = cname + '=' + JSON.stringify(shExTrLocationName) + ';' + expires + '; path=/';
+	document.cookie = cname + '=' + shExTrLocationName + ';' + expires + '; path=/';
 }
 
 //Use this function to save personal data to cookies.
