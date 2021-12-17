@@ -70,6 +70,10 @@ function initPage(){
 	refreshTimeout = setTimeout(refreshCountsFromGoogleSheet, 1000*60*10);
 
 	webRetryTimeout = -1;
+
+	hasCasiStation = false;
+	hasHotseatStation = false;
+	hasReshipStation = false;
 	
 	span_key = document.getElementById('span_key');
 	
@@ -191,6 +195,10 @@ function buildTable(data) {
 	if (collapseStations) collapseDataByUsername(data);
 	else sortDataByStation(data);
 	sortDataByName(data);
+
+	hasCasiStation = false;
+	hasHotseatStation = false;
+	hasReshipStation = false;
 	
 	//Make new columns if needed
 	for (let i = mainTableCells.length; i < data.length + 2; ++i){
@@ -234,9 +242,18 @@ function buildTable(data) {
 		//Cell CSS.
 		mainTableCells[i][0].className = "";
 		if (!collapseStations){
-			if (data[i-1].station == "casi") mainTableCells[i][0].className = 'cell_grandtotal';
-			if (data[i-1].station == "hotseat") mainTableCells[i][0].className = 'cell_total';
-			if (data[i-1].station == "reships") mainTableCells[i][0].className = 'reships';
+			if (data[i-1].station == "casi"){
+				mainTableCells[i][0].className = 'cell_grandtotal';
+				hasCasiStation = true;
+			}
+			if (data[i-1].station == "hotseat"){
+				mainTableCells[i][0].className = 'cell_total';
+				hasHotseatStation = true;
+			}
+			if (data[i-1].station == "reships"){
+				mainTableCells[i][0].className = 'reships';
+				hasReshipStation = true;
+			}
 		}
 		for (let j = 1; j < 25; ++j){
 			mainTableCells[i][j].className = "";
@@ -259,6 +276,16 @@ function buildTable(data) {
 	for (let i = 0; i < 24; i++){
 		if (timeTotals[i] > 0) mainTableRows[i+1].style.display = '';
 		else mainTableRows[i+1].style.display = 'none';
+	}
+
+	//Show or hide Key sections
+	if (!collapseStations){
+		if (hasHotseatStation) document.getElementById("spanKeyHotseat").style.display = "inline";
+		else document.getElementById("spanKeyHotseat").style.display = "none";
+		if (hasCasiStation) document.getElementById("spanKeyCasi").style.display = "inline";
+		else document.getElementById("spanKeyCasi").style.display = "none";
+		if (hasReshipStation) document.getElementById("spanKeyReships").style.display = "inline";
+		else document.getElementById("spanKeyReships").style.display = "none";
 	}
 }
 
@@ -374,7 +401,7 @@ function toggleCollapseStations(){
 	<a class="button_small" onclick="refreshCountsFromGoogleSheet()">Refresh</a>
 	<a class="button_small" onclick="toggleCollapseStations()">Toggle Stations</a>
 	<br/>
-	<span id="span_key" style="display: none">Name colors: <span class="reships">Reships</span> - <span>Ship Exec Station</span> - <span class="cell_grandtotal">Casi Station</span> - <span class="cell_total">Hotseat</span></span>
+	<span id="span_key" style="display: none">Name colors: <span>Ship Exec Station</span><span id="spanKeyReships" class="reships"> - Reships</span><span id="spanKeyCasi" class="cell_grandtotal"> - Casi Station</span><span id="spanKeyHotseat" class="cell_total"> - Hotseat</span></span>
 </div>
 </body>
 </html>
