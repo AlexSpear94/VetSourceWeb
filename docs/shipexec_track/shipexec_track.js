@@ -12,10 +12,10 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.6.2";
+	shExTrVersion = "1.6.3";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
-	shExTrAllowedPages = ['http://shipping.vetpdx.com/ShipExec/Content/RateShip/Manifest.aspx', 'http://10.138.0.18/ShipExec/Content/RateShip/Manifest.aspx'];
+	shExTrAllowedUrlPaths = ['/ShipExec/Content/RateShip/Manifest.aspx'];
 	
 	shExTrStationName = "shipexec";
 	shExTrLocationName = "";
@@ -26,14 +26,15 @@ function shExTrInit(){
 	//Check the URL to see if it is the ShipExec shipping page.
 	if (typeof shExTrDebugMode === 'undefined'){
 		let match = false;
-		for (let i = 0; i < shExTrAllowedPages.length; i++){
-			if (window.location.href == shExTrAllowedPages[i]){
+		for (let i = 0; i < shExTrAllowedUrlPaths.length; i++){
+			if (window.location.href.indexOf(shExTrAllowedUrlPaths[i]) > -1){
 				match = true;
 				break;
 			}
 		}
 		if (!match){
 			console.log('Script on wrong page. Aborting load.');
+			alert("This isn't the correct page to use ShipExecTrack on!")
 			return;
 		}
 	}
