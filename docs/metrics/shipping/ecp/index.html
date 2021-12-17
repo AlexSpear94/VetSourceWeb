@@ -33,6 +33,9 @@ th, td{
 .reships{
 	color: pink;
 }
+.shipexec_gl{
+	color: palegreen;
+}
 .table_footer{
 	margin: 5px;
 }
@@ -72,6 +75,7 @@ function initPage(){
 	webRetryTimeout = -1;
 
 	hasCasiStation = false;
+	hasGLStation = false;
 	hasHotseatStation = false;
 	hasReshipStation = false;
 	
@@ -117,24 +121,36 @@ function sortCompareStation(ldata, rdata){
 	let rvalue = 0;
 	switch (ldata.station){
 	case 'reships':
-		lvalue = -1;
+		lvalue = 0;
 		break;
-	case 'casi':
+	case 'shipexec':
 		lvalue = 1;
 		break;
-	case 'hotseat':
+	case 'shipexec_gl':
 		lvalue = 2;
+		break;
+	case 'casi':
+		lvalue = 3;
+		break;
+	case 'hotseat':
+		lvalue = 4;
 		break;
 	}
 	switch (rdata.station){
 	case 'reships':
-		rvalue = -1;
+		rvalue = 0;
 		break;
-	case 'casi':
+	case 'shipexec':
 		rvalue = 1;
 		break;
-	case 'hotseat':
+	case 'shipexec_gl':
 		rvalue = 2;
+		break;
+	case 'casi':
+		rvalue = 3;
+		break;
+	case 'hotseat':
+		rvalue = 4;
 		break;
 	}
 	return (lvalue > rvalue);
@@ -197,6 +213,7 @@ function buildTable(data) {
 	sortDataByName(data);
 
 	hasCasiStation = false;
+	hasGLStation = false;
 	hasHotseatStation = false;
 	hasReshipStation = false;
 	
@@ -254,6 +271,10 @@ function buildTable(data) {
 				mainTableCells[i][0].className = 'reships';
 				hasReshipStation = true;
 			}
+			if (data[i-1].station == "shipexec_gl"){
+				mainTableCells[i][0].className = 'shipexec_gl';
+				hasGLStation = true;
+			}
 		}
 		for (let j = 1; j < 25; ++j){
 			mainTableCells[i][j].className = "";
@@ -286,6 +307,8 @@ function buildTable(data) {
 		else document.getElementById("spanKeyCasi").style.display = "none";
 		if (hasReshipStation) document.getElementById("spanKeyReships").style.display = "inline";
 		else document.getElementById("spanKeyReships").style.display = "none";
+		if (hasGLStation) document.getElementById("spanKeyGL").style.display = "inline";
+		else document.getElementById("spanKeyGL").style.display = "none";
 	}
 }
 
@@ -401,7 +424,7 @@ function toggleCollapseStations(){
 	<a class="button_small" onclick="refreshCountsFromGoogleSheet()">Refresh</a>
 	<a class="button_small" onclick="toggleCollapseStations()">Toggle Stations</a>
 	<br/>
-	<span id="span_key" style="display: none">Name colors: <span>Ship Exec Station</span><span id="spanKeyReships" class="reships"> - Reships</span><span id="spanKeyCasi" class="cell_grandtotal"> - Casi Station</span><span id="spanKeyHotseat" class="cell_total"> - Hotseat</span></span>
+	<span id="span_key" style="display: none">Name colors: <span>Ship Exec Station</span><span id="spanKeyGL" class="shipexec_gl"> - Gaylord Station</span><span id="spanKeyReships" class="reships"> - Reships</span><span id="spanKeyCasi" class="cell_grandtotal"> - Casi Station</span><span id="spanKeyHotseat" class="cell_total"> - Hotseat</span></span>
 </div>
 </body>
 </html>
