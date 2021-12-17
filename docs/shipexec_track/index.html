@@ -12,6 +12,7 @@ function initPage(){
 	if (_bookmarkletURL2 == "") _bookmarkletURL2 = "172.16.150.66";
 	_bookmarkletURL3 = "/vetsource_web/shipexec_track/shipexec_track.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
 	_bookmarkletURL3Dev = "/vetsource_web/shipexec_track/shipexec_track.dev.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
+	_bookmarkletURL3GL = "/vetsource_web/shipexec_track/shipexec_track.gl.js';document.getElementsByTagName('head')[0].appendChild(s);}());";
 
 	document.getElementById("inputDomain").value = _bookmarkletURL2;
 
@@ -26,6 +27,7 @@ function changeDomainOnClick(){
 function updateHrefs(){
 	document.getElementById("aMain").href = _bookmarkletURL1 + _bookmarkletURL2 + _bookmarkletURL3;
 	document.getElementById("aDev").href = _bookmarkletURL1 + _bookmarkletURL2 + _bookmarkletURL3Dev;
+	document.getElementById("aGL").href = _bookmarkletURL1 + _bookmarkletURL2 + _bookmarkletURL3GL;
 }
 </script>
 <h1>ShipExecTrack</h1>
@@ -45,14 +47,17 @@ function updateHrefs(){
 	<li>Login on the bottom-right of the page, using your Casi username.</li>
 </list>
 <br/>
+<p>Alternate versions:</p>
+<p>Gaylord Station Version: <a id="aGL" href="#">ShipExecTrack</a></p>
+<button onclick="document.getElementById('divHidden').style.display = 'inline'; this.style.display='none';">Show Hidden</button>
+<div id="divHidden" style="display: none;">
+	<p>Development Version - Do not use: <a id="aDev" href="#">ShipExecTrack Dev</a></p>
+</div>
+<br/>
 <p>Use the button below if needed to change the domain used in the Drag & Drop Bookmarklets before you create them.</p>
 <input id="inputDomain" type="text" name="inputDomain"/>
 <button onclick="changeDomainOnClick();">Change Domain</button>
 <br/>
 <br/>
-<button onclick="document.getElementById('divHidden').style.display = 'inline'; this.style.display='none';">Show Hidden</button>
-<div id="divHidden" style="display: none;">
-	<p><a id="aDev" href="#">ShipExecTrack Dev</a> Development Version - Do not use!</p>
-</div>
 </body>
 </html>
