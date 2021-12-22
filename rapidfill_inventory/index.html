@@ -287,7 +287,7 @@ function onDataLoaded(){
 	if (button.disabled != disablePreviousRound){
 		button.disabled = disablePreviousRound;
 		if (disablePreviousRound) button.title = "No round exists yet for today."
-		else button.title = "View the quantities of todays rounds."
+		else button.title = "View the quantities of today's rounds."
 	}
 	button = document.getElementById("buttonMainReceiving");
 	if (button.disabled != disableReceiving){
@@ -429,7 +429,7 @@ function loadPage(page){
 		currentHash = "#viewpreviousround";
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildPreviousRoundTable();
-		setSubtitle(true, "Viewing Todays Rounds");
+		setSubtitle(true, "Viewing Today's Rounds");
 		document.getElementById("divPreviousRound").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		break;
@@ -1392,7 +1392,7 @@ function webRequest(url, data, loadCallback){
 		<br/>
 		<button class="buttonMain" onclick="loadPage(2);" id="buttonMainBin" title="Pick depleted bins for rapidfill.">Bin Picking</button>
 		<br/>
-		<button class="buttonMain" onclick="loadPage(7);" id="buttonMainPreviousRound" title="View the quantities of todays rounds.">View Todays Rounds</button>
+		<button class="buttonMain" onclick="loadPage(7);" id="buttonMainPreviousRound" title="View the quantities of today's rounds.">View Today's Rounds</button>
 		<br/>
 		<button class="buttonMain" onclick="loadPage(3);" title="View on-hand counts in Rapid-Fill.">View Inventory</button>
 		<br/>
