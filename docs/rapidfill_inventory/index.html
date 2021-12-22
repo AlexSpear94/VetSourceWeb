@@ -233,7 +233,7 @@ function initPage(){
 
 	loadTheme();
 
-	previousWebRequest = {"url":"", "data": "", "callback": 0};
+	previousWebRequest = {"url":"", "data": "", "loadCallback": 0};
 
 	elementSubTitle = document.getElementById("subTitle");
 	elementSubTitleTextNode = elementSubTitle.childNodes[0];
@@ -1366,7 +1366,7 @@ function webRequest(url, data, loadCallback){
 	isWaitingOnNetwork = true;
 	previousWebRequest.url = url;
 	previousWebRequest.data = data;
-	previousWebRequest.callback = loadCallback;
+	previousWebRequest.loadCallback = loadCallback;
 	var xhr = new XMLHttpRequest();
 	xhr.open("post", url, true);
 	xhr.setRequestHeader('Content-Type', 'text/plain');
