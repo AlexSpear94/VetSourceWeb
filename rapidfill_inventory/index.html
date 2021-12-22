@@ -4,9 +4,31 @@
 <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
 <title>Rapidfill Inventory</title>
 <style>
+.theme-light{
+	--color-primary: #FFFFFF;
+	--color-secondary: #000000;
+	--font-color: #000000;
+	--button-background: #EFEFEF;
+	--button-disabled-background: #A0A0A0;
+	--button-disabled-font: #606060;
+	--faded-border: #303030;
+	--color-edge: #808080;
+	--overlay-background: #FFFFFFE0;
+}
+.theme-dark{
+	--color-primary: #000000;
+	--color-secondary: #FFFFFF;
+	--font-color: #FFFFFF;
+	--button-background: #202020;
+	--button-disabled-background: #606060;
+	--button-disabled-font: #A0A0A0;
+	--faded-border: #c0c0c0;
+	--color-edge: #808080;
+	--overlay-background: #000000E0;
+}
 body{
-	background-color: black;
-	color: white;
+	background-color: var(--color-primary);
+	color: var(--font-color);
 	text-align: center;
 }
 div{
@@ -16,10 +38,11 @@ div.divHeaderButtons{
 	margin: 0 30% 0 70%;
 }
 button{
-	background-color: #202020;
-	border-color: white;
-	color: white;
+	background-color: var(--button-background);
+	border-color: var(--color-secondary);
+	color: var(--font-color);
 	font-size: large;
+	border-width: .05em;
 	margin: .18em;
 	padding: .18em;
 	cursor: pointer;
@@ -31,18 +54,19 @@ button.buttonMain{
 }
 button:disabled,
 button[disabled]{
-	background-color: #606060;
-	border-color: #c0c0c0;
-	color: #A0A0A0;
+	background-color: var(--button-disabled-background);
+	border-color: var(--faded-border);
+	color: var(--button-disabled-font);
 	cursor: default;
 }
 h1{
 	font-size: 300%;
 }
 input{
-	background-color: black;
-	border-color: white;
-	color: white;
+	background-color: var(--color-primary);
+	border-color: var(--color-secondary);
+	border-width: .05em;
+	color: var(--font-color);
 	text-align: center;
 	max-width: 3.5em;
 	cursor: text;
@@ -58,8 +82,8 @@ input.checkbox{
 	width: 2em;
 	height: 2em;
 	-webkit-appearance: none;
-	background-color: #000000;
-	border: .1em solid #B0B0B0;
+	background-color: var(--color-primary);
+	border: .1em solid var(--faded-border);
 	padding: .6em;
 	border-radius: .2em;
 	display: inline-block;
@@ -72,21 +96,22 @@ input.checkbox:checked:after {
 	position: absolute;
 	top: -.15em;
 	left: .2em;
-	color: #FFFFFF;
+	color: var(--font-color);
 }
 input.checkbox:disabled {
-	background-color: #202020;
+	background-color: var(--button-background);
 	cursor: default;
 }
 td,th{
 	padding: .6em;
-	border-color: gray;
+	border-color: var(--color-edge);
 	border-width: .06em;
 	border-style: solid;
 	max-width: 18em;
 }
 td.large{
 	font-size: 150%;
+	border-width: .04em;
 }
 th.thin{
 	max-width: 5em;
@@ -106,9 +131,14 @@ table{
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background-color: #000000E0;
+	background-color: var(--overlay-background);
 	z-index: 2;
 	cursor: default;
+}
+.fixedBottomRight{
+	position: fixed;
+	right: 0%;
+	bottom: 0%;
 }
 .overlayText{
 	margin: 0;
@@ -125,7 +155,7 @@ table{
 	left: 50%;
 	-ms-transform: translate(-50%, -40%);
 	transform: translate(-50%, -40%);
-	background-color: #000000;
+	background-color: var(--color-primary);
 }
 @media print {
 body,input{
@@ -184,6 +214,8 @@ function initPage(){
 
 	currentHash = "";
 
+	loadTheme();
+
 	previousWebRequest = {"url":"", "data": "", "callback": 0};
 
 	elementSubTitle = document.getElementById("subTitle");
@@ -211,10 +243,16 @@ function onDataLoaded(){
 		}
 	}
 	for (var i = 0; i < tableData.length; i++){
-		if (tableData[i].PREVIOUS_ROUND > 0){
-			disablePreviousRound = false;
+		var round = tableData[i].PREVIOUS_ROUND;
+		switch (typeof round){
+		case 'number':
+			if (round > 0) disablePreviousRound = false;
+			break;
+		case 'string':
+			if (parseInt(round) > 0 || round.indexOf(',') > -1) disablePreviousRound = false;
 			break;
 		}
+		if (!disablePreviousRound) break;
 	}
 	for (var i = 0; i < tableData.length; i++){
 		if (tableData[i].BINS_NEEDED_FROM_RECEIVING || tableData[i].TOOK_LAST_CASI_BIN || tableData[i].OOS_SHARE_WITH_CASI){
@@ -225,14 +263,14 @@ function onDataLoaded(){
 	var button = document.getElementById("buttonMainBin");
 	if (button.disabled != disableBins){
 		button.disabled = disableBins;
-		if (disableBins) button.title = "Replenishments: No replenishment neccessary."
-		else button.title = "Replenish depleted bins."
+		if (disableBins) button.title = "Bin Picking: No bins neccessary."
+		else button.title = "Pick depleted bins for rapidfill."
 	}
 	button = document.getElementById("buttonMainPreviousRound");
 	if (button.disabled != disablePreviousRound){
 		button.disabled = disablePreviousRound;
-		if (disablePreviousRound) button.title = "No previous round exists."
-		else button.title = "View the quantities of the latest round."
+		if (disablePreviousRound) button.title = "No round exists yet for today."
+		else button.title = "View the quantities of todays rounds."
 	}
 	button = document.getElementById("buttonMainReceiving");
 	if (button.disabled != disableReceiving){
@@ -323,11 +361,11 @@ function loadPage(page){
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
 		break;
-	case 2://Bin Replenishment
-		currentHash = "#binreplenish";
+	case 2://Bin Picking
+		currentHash = "#binpicking";
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildBinTable();
-		setSubtitle(true, "Bin Replenishment");
+		setSubtitle(true, "Bin Picking");
 		document.getElementById("divBinTable").style.display = "initial";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
@@ -342,11 +380,11 @@ function loadPage(page){
 		document.getElementById("divInventoryTable").style.display = "initial";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		break;
-	case 4://Cycle Count
-		currentHash = "#cyclecount";
+	case 4://Update Counts
+		currentHash = "#updatecounts";
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildCycleCountTable();
-		setSubtitle(true, "Cycle Count");
+		setSubtitle(true, "Update Counts");
 		document.getElementById("divCycleCountTable").style.display = "initial";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
@@ -374,7 +412,7 @@ function loadPage(page){
 		currentHash = "#viewpreviousround";
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildPreviousRoundTable();
-		setSubtitle(true, "Viewing Previous Round");
+		setSubtitle(true, "Viewing Todays Rounds");
 		document.getElementById("divPreviousRound").style.display = "initial";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		break;
@@ -414,13 +452,13 @@ function onHashChange(){
 		case "#inputround":
 			loadPage(1);
 			break;
-		case "#binreplenish":
+		case "#binpicking":
 			loadPage(2);
 			break;
 		case "#viewinventory":
 			loadPage(3);
 			break;
-		case "#cyclecount":
+		case "#updatecounts":
 			loadPage(4);
 			break;
 		case "#editproducts":
@@ -493,7 +531,7 @@ function onSubmitButtonClick(){
 		}
 		submitRoundToSheet(outData);
 		break;
-	case 2://Bin Replenishment
+	case 2://Bin Picking
 		var outData = new Array();
 		for (var i = 0; i < tableInputs.length / 4; i++){
 			try{
@@ -514,7 +552,7 @@ function onSubmitButtonClick(){
 		}
 		submitBinReplenishmentToSheet(outData);
 		break;
-	case 4://Cycle Count
+	case 4://Update Counts
 		var outData = new Array();
 		for (var i = 0; i < tableData.length; i++){
 			try{
@@ -631,6 +669,31 @@ function onBackButtonClick(){
 	loadPage(5);
 }
 
+function setTheme(themeName){
+	localStorage.setItem('theme', themeName);
+	document.documentElement.className = themeName;
+}
+
+function toggleTheme(){
+	if (localStorage.getItem('theme') === 'theme-dark'){
+		setTheme('theme-light');
+	} else {
+		setTheme('theme-dark');
+	}
+}
+
+function onThemeButtonClick(){
+	toggleTheme();
+}
+
+function loadTheme(){
+	if (localStorage.getItem('theme') === 'theme-dark') {
+		setTheme('theme-dark');
+	} else {
+		setTheme('theme-light');
+	}
+}
+
 function onHomeButtonClick(){
 	if (isWaitingOnNetwork) return;
 	if (hasUnsavedChanges){
@@ -670,6 +733,22 @@ function emptyTableExceptFirstRow(table){
 			table.removeChild(table.lastChild);
 		}
 		table.appendChild(firstRow);
+	}
+}
+
+function getRoundsArray(input){
+	var arr = new Array();
+	switch (typeof input){
+	case 'number':
+		arr.push(input);
+		return arr;
+	case 'string':
+		strs = input.split(',');
+		for (let i = 0; i < strs.length; i++){
+			if (strs[i] != "") arr.push(parseInt(strs[i]));
+			else arr.push(0);
+		}
+		return arr;
 	}
 }
 
@@ -758,7 +837,7 @@ function buildPickTable(){
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
-		var input = createNumberField(0, 1000000, 1, "", "");
+		var input = createNumberField(0, 1000000, 1, "", "large");
 		input.tab_index = i;
 		tableInputs.push(input);
 		tableRow.appendChild(createElementWithChildNode('td',input,""));
@@ -828,7 +907,7 @@ function buildReceivingTable(){
 		elem.className = "noPrint";
 		tableRow.appendChild(elem);
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BIN_QTY,""));
-		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BINS_NEEDED,"large"));
+		tableRow.appendChild(createElementWithTextNode('td',tableData[i].BINS_NEEDED,parseInt(tableData[i].BINS_NEEDED) > 0 ? "large" : ""));
 		var input = createNumberField(0, 1000000, 1, "", "large");
 		input.productID = tableData[i].ID;
 		input.binsNeeded = tableData[i].BINS_NEEDED;
@@ -865,13 +944,38 @@ function buildPreviousRoundTable(){
 	var table = document.getElementById('tablePreviousRound').children[0];
 	tableInputs = new Array();
 	emptyTableExceptFirstRow(table);
+	//Remove extra round columns
+	while (table.children[0].children.length > 4){
+		table.children[0].removeChild(table.children[0].lastChild);
+	}
+	var roundCount = getRoundsArray(tableData[0].PREVIOUS_ROUND).length;
+	if (roundCount > 1){
+		for (var i = 1; i < roundCount; i++){
+			table.children[0].appendChild(createElementWithTextNode('th',"Round " + (i + 1),""));
+		}
+	}
+
 	for (var i = 0; i < tableData.length; i++){
-		if (tableData[i].PREVIOUS_ROUND <= 0) continue;
+		var roundData = getRoundsArray(tableData[i].PREVIOUS_ROUND);
+		var skip = true;
+		for (var j = 0; j < roundData.length; j++){
+			if (roundData[j] > 0){
+				skip = false;
+				break;
+			}
+		}
+		if (skip) continue;
+
 		var tableRow = document.createElement('tr');
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].SKU,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PRODUCT_NAME,""));
 		tableRow.appendChild(createElementWithTextNode('td',tableData[i].LOCATION,""));
-		tableRow.appendChild(createElementWithTextNode('td',tableData[i].PREVIOUS_ROUND,""));
+
+		for (var j = 0; j < roundCount; j++){
+			if (roundData.length > j) tableRow.appendChild(createElementWithTextNode('td',roundData[j],""));
+			else tableRow.appendChild(createElementWithTextNode('td',"0",""));
+		}
+
 		table.appendChild(tableRow);
 	}
 }
@@ -1269,13 +1373,13 @@ function webRequest(url, data, loadCallback){
 	<div id="divMainMenuButtons" style="display: none;">
 		<button class="buttonMain" onclick="loadPage(1);" id="buttonMainRound" title="Enter data for a round and deduct from inventory.">Input Round</button>
 		<br/>
-		<button class="buttonMain" onclick="loadPage(2);" id="buttonMainBin" title="Replenish depleted bins.">Bin Replenishment</button>
+		<button class="buttonMain" onclick="loadPage(2);" id="buttonMainBin" title="Pick depleted bins for rapidfill.">Bin Picking</button>
 		<br/>
-		<button class="buttonMain" onclick="loadPage(7);" id="buttonMainPreviousRound" title="View the quantities of the latest round.">View Previous Round</button>
+		<button class="buttonMain" onclick="loadPage(7);" id="buttonMainPreviousRound" title="View the quantities of todays rounds.">View Todays Rounds</button>
 		<br/>
 		<button class="buttonMain" onclick="loadPage(3);" title="View on-hand counts in Rapid-Fill.">View Inventory</button>
 		<br/>
-		<button class="buttonMain" onclick="loadPage(4);" title="Edit on-hand counts in Rapid-Fill.">Cycle Count</button>
+		<button class="buttonMain" onclick="loadPage(4);" title="Edit on-hand counts in Rapid-Fill.">Update Counts</button>
 		<br/>
 		<button class="buttonMain" onclick="loadPage(5);" title="Edit product details.">Edit Products</button>
 		<br/>
@@ -1378,7 +1482,7 @@ function webRequest(url, data, loadCallback){
 				<th>SKU</th>
 				<th>Name</th>
 				<th>Location</th>
-				<th>Qty</th>
+				<th>Round 1</th>
 			</tr>
 		</table>
 	</div>
@@ -1403,6 +1507,9 @@ function webRequest(url, data, loadCallback){
 	<div id="divFooterButtons" style="display: none;">
 		<button id="buttonCancel" style="display: none;" onclick="onBackButtonClick();">Cancel</button>
 		<button id="buttonSubmit" onclick="onSubmitButtonClick();">Submit</button>
+	</div>
+	<div class="fixedBottomRight">
+		<button onclick="onThemeButtonClick();">Switch Theme</button>
 	</div>
 </div>
 <div id="divOverlay">
