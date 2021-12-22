@@ -102,12 +102,24 @@ input.checkbox:disabled {
 	background-color: var(--button-background);
 	cursor: default;
 }
-td,th{
+td{
 	padding: .6em;
 	border-color: var(--color-edge);
 	border-width: .06em;
 	border-style: solid;
 	max-width: 18em;
+	background-color: var(--color-primary);
+}
+th{
+	padding: .6em;
+	border-color: var(--color-edge);
+	border-width: .06em;
+	border-style: solid;
+	max-width: 18em;
+	background-color: var(--color-primary);
+	position: sticky;
+	top: 0;
+	z-index: 1;
 }
 td.large{
 	font-size: 150%;
@@ -117,10 +129,15 @@ th.thin{
 	max-width: 5em;
 }
 table{
+	position: relative;
 	display: inline-block;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+.divTable{
 	max-height: 40em;
 	overflow-y: scroll;
-	border-collapse: collapse;
+	width: max-content;
 }
 #divOverlay{
 	position: fixed;
@@ -174,7 +191,7 @@ input.wide,input.large{
 h1,h2,td.large,input.wide,input.large{
 	font-size: 10pt;
 }
-table{
+div.divTable, table{
 	display: block;
 	max-height: unset;
 	overflow-y: auto;
@@ -357,7 +374,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildPickTable();
 		setSubtitle(true, "Input Round");
-		document.getElementById("divPickTable").style.display = "initial";
+		document.getElementById("divPickTable").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
 		break;
@@ -366,7 +383,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildBinTable();
 		setSubtitle(true, "Bin Picking");
-		document.getElementById("divBinTable").style.display = "initial";
+		document.getElementById("divBinTable").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
 		document.getElementById("buttonSetZero").style.display = "inline";
@@ -377,7 +394,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildInventoryTable();
 		setSubtitle(true, "Viewing Inventory");
-		document.getElementById("divInventoryTable").style.display = "initial";
+		document.getElementById("divInventoryTable").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		break;
 	case 4://Update Counts
@@ -385,7 +402,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildCycleCountTable();
 		setSubtitle(true, "Update Counts");
-		document.getElementById("divCycleCountTable").style.display = "initial";
+		document.getElementById("divCycleCountTable").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
 		break;
@@ -394,7 +411,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildEditProductsTable();
 		setSubtitle(true, "Editing Products");
-		document.getElementById("divEditProductsTable").style.display = "initial";
+		document.getElementById("divEditProductsTable").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("buttonAddProduct").style.display = "inline";
 		break;
@@ -403,7 +420,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildEditSingleProductTable();
 		setSubtitle(true, "Editing a Product");
-		document.getElementById("divEditSingleProduct").style.display = "initial";
+		document.getElementById("divEditSingleProduct").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
 		document.getElementById("buttonCancel").style.display = "inline";
@@ -413,7 +430,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildPreviousRoundTable();
 		setSubtitle(true, "Viewing Todays Rounds");
-		document.getElementById("divPreviousRound").style.display = "initial";
+		document.getElementById("divPreviousRound").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		break;
 	case 8://Add New Product
@@ -421,7 +438,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildAddProductTable();
 		setSubtitle(true, "Adding a new Product");
-		document.getElementById("divAddProduct").style.display = "initial";
+		document.getElementById("divAddProduct").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
 		document.getElementById("buttonCancel").style.display = "inline";
@@ -431,7 +448,7 @@ function loadPage(page){
 		if (window.location.hash != currentHash) window.location.hash = currentHash;
 		buildReceivingTable();
 		setSubtitle(true, "Receiving Refills");
-		document.getElementById("divReceivingTable").style.display = "initial";
+		document.getElementById("divReceivingTable").style.display = "block";
 		document.getElementById("divHeaderButtons").style.display = "block";
 		document.getElementById("divFooterButtons").style.display = "block";
 		document.getElementById("buttonSetZero").style.display = "inline";
@@ -1385,7 +1402,7 @@ function webRequest(url, data, loadCallback){
 		<br/>
 		<button class="buttonMain" onclick="loadPage(9);" id="buttonMainReceiving" title="Receiving: Manage refills and bins in rapidfill and on the Casi line.">Receiving Refills</button>
 	</div>
-	<div id="divPickTable" style="display: none;">
+	<div id="divPickTable" class="divTable" style="display: none;">
 		<table id="tablePick">
 			<tr>
 				<th>SKU</th>
@@ -1395,7 +1412,7 @@ function webRequest(url, data, loadCallback){
 			</tr>
 		</table>
 	</div>
-	<div id="divBinTable" style="display: none;">
+	<div id="divBinTable" class="divTable" style="display: none;">
 		<table id="tableBin">
 			<tr>
 				<th>SKU</th>
@@ -1413,7 +1430,7 @@ function webRequest(url, data, loadCallback){
 			</tr>
 		</table>
 	</div>
-	<div id="divInventoryTable" style="display: none;">
+	<div id="divInventoryTable" class="divTable" style="display: none;">
 		<table id="tableInventory">
 			<tr>
 				<th>SKU</th>
@@ -1426,7 +1443,7 @@ function webRequest(url, data, loadCallback){
 			</tr>
 		</table>
 	</div>
-	<div id="divCycleCountTable" style="display: none;">
+	<div id="divCycleCountTable" class="divTable" style="display: none;">
 		<table id="tableCycleCount">
 			<tr>
 				<th>SKU</th>
@@ -1440,7 +1457,7 @@ function webRequest(url, data, loadCallback){
 			</tr>
 		</table>
 	</div>
-	<div id="divEditProductsTable" style="display: none;">
+	<div id="divEditProductsTable" class="divTable" style="display: none;">
 		<table id="tableEditProducts">
 			<tr>
 				<th>SKU</th>
@@ -1476,7 +1493,7 @@ function webRequest(url, data, loadCallback){
 			</tr>
 		</table>
 	</div>
-	<div id="divPreviousRound" style="display: none;">
+	<div id="divPreviousRound" class="divTable" style="display: none;">
 		<table id="tablePreviousRound">
 			<tr>
 				<th>SKU</th>
@@ -1486,7 +1503,7 @@ function webRequest(url, data, loadCallback){
 			</tr>
 		</table>
 	</div>
-	<div id="divReceivingTable" style="display: none;">
+	<div id="divReceivingTable" class="divTable" style="display: none;">
 		<table id="tableReceiving">
 			<tr>
 				<th>SKU</th>
