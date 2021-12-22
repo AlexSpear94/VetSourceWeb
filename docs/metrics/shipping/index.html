@@ -72,7 +72,7 @@ function initPage(){
 	loadedCountString = "";
 	refreshTimeout = setTimeout(refreshCountsFromGoogleSheet, 1000*60*10);
 
-	webRetryTimeout = -1;
+	previousWebRequest = {"url":"", "data": "", "loadCallback": 0};
 
 	hasCasiStation = false;
 	hasGLStation = false;
@@ -315,10 +315,6 @@ function buildTable(data) {
 //Callback function for request when loading counts from Google Sheet
 function onLoadRefreshCountsFromGoogleSheet(){
 	countsBeingRequested = false;
-	if (webRetryTimeout != -1){
-		clearTimeout(webRetryTimeout)
-		webRetryTimeout = -1;
-	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -359,14 +355,9 @@ function onLoadRefreshCountsFromGoogleSheet(){
 
 //Function for requesting counts form Google Sheet
 function refreshCountsFromGoogleSheet(){
-	if (!countsBeingRequested || webRetryTimeout != -1){
+	if (!countsBeingRequested){
 		console.log('Getting counts from Google Sheet...');
-		webRetryTimeout = setTimeout(refreshCountsFromGoogleSheet, 1000*10);
-		var xhr = new XMLHttpRequest();
-		xhr.open("post", _googleSheetURL, true);
-		xhr.setRequestHeader('Content-Type', 'text/plain');
-		xhr.onload = onLoadRefreshCountsFromGoogleSheet;
-		xhr.send(JSON.stringify({'postType': 'GetCounts','location': _locationName}));
+		webRequest(_googleSheetURL, JSON.stringify({'postType': 'GetCounts','location': _locationName}), onLoadRefreshCountsFromGoogleSheet);
 		mainTableFooter.innerHTML = "Loading counts...";
 		countsBeingRequested = true;
 		if (refreshTimeout != -1){
@@ -387,6 +378,25 @@ function toggleCollapseStations(){
 	if (loadedCountString == "") return;
 	
 	buildTable(JSON.parse(loadedCountString).data);
+}
+
+function onWebRequestError(){
+	console.log("Webrequest Error!");
+	webRequest(previousWebRequest.url, previousWebRequest.data, previousWebRequest.loadCallback);
+}
+
+function webRequest(url, data, loadCallback){
+	console.log('Sending webrequest...');
+	previousWebRequest.url = url;
+	previousWebRequest.data = data;
+	previousWebRequest.loadCallback = loadCallback;
+	var xhr = new XMLHttpRequest();
+	xhr.open("post", url, true);
+	xhr.setRequestHeader('Content-Type', 'text/plain');
+	xhr.onerror = onWebRequestError;
+	xhr.onabort = onWebRequestError;
+	xhr.onload = loadCallback;
+	xhr.send(data);
 }
 </script>
 <h1>Daily Ship Totals</h1>

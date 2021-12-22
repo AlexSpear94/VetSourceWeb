@@ -12,7 +12,7 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.6.3 Dev";
+	shExTrVersion = "1.6.4 Dev";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedUrlPaths = ['/ShipExec/Content/RateShip/Manifest.aspx'];
@@ -20,8 +20,9 @@ function shExTrInit(){
 	shExTrStationName = "shipexec";
 	shExTrLocationName = "";
 
+	shExTrPreviousWebRequest = {"url":"", "data": "", "loadCallback": 0};
+
 	shExTrHasRefreshedCounts = false;
-	shExTrRefreshTimeout = -1;
 	
 	//shExTrDebugMode = true;
 	
@@ -920,14 +921,9 @@ function shExTrTableCellCSSGrandTotal(cell) {
 //Function for requesting usernames form Google Sheet
 function shExTrRefreshCountsFromGoogleSheet(){
 	shExTrHasRefreshedCounts = true;
-	if (!shExTrCountsBeingRequested || shExTrRefreshTimeout != -1){
+	if (!shExTrCountsBeingRequested){
 		console.log('Getting counts from Google Sheet...');
-		var xhr = new XMLHttpRequest();
-		shExTrRefreshTimeout = setTimeout(shExTrRefreshCountsFromGoogleSheet, 1000*10);
-		xhr.open("post", shExTrGoogleSheetURL, true);
-		xhr.setRequestHeader('Content-Type', 'text/plain');
-		xhr.onload = shExTrOnLoadRefreshCountsFromGoogleSheet;
-		xhr.send(JSON.stringify({'postType': 'GetCounts','location': shExTrLocationName}));
+		shExTrWebRequest(shExTrGoogleSheetURL, JSON.stringify({'postType': 'GetCounts','location': shExTrLocationName}), shExTrOnLoadRefreshCountsFromGoogleSheet);
 		shExTrCountsBeingRequested = true;
 	}
 }
@@ -935,22 +931,13 @@ function shExTrRefreshCountsFromGoogleSheet(){
 //Function for posting the current post request to google sheets.
 function shExTrSendPostRequest(){
 	console.log("Posting counts...");
-	
-	var xhr = new XMLHttpRequest();
-	xhr.open("post", shExTrGoogleSheetURL, true);
-	xhr.setRequestHeader('Content-Type', 'text/plain');
-	xhr.onload = shExTrPostResponse;
-	xhr.send(JSON.stringify(shExTrPostRequest));
+	shExTrWebRequest(shExTrGoogleSheetURL, JSON.stringify(shExTrPostRequest), shExTrPostResponse);
 }
 
 //Function for requesting usernames form Google Sheet
 function shExTrLoadValidUsernames(){
 	console.log('Loading usernames...');
-	var xhr = new XMLHttpRequest();
-	xhr.open("post", shExTrGoogleSheetURL, true);
-	xhr.setRequestHeader('Content-Type', 'text/plain');
-	xhr.onload = shExTrLoadUsernamesResponse;
-	xhr.send(JSON.stringify({'postType': 'GetNames'}));
+	shExTrWebRequest(shExTrGoogleSheetURL, JSON.stringify({'postType': 'GetNames'}), shExTrLoadUsernamesResponse);
 }
 //#endregion
 
@@ -1071,13 +1058,29 @@ function shExTrOnInputLoadChange(event){
 }
 
 //#region Network
+function shExTrOnWebRequestError(){
+	console.log("Webrequest Error!");
+	webRequest(shExTrPreviousWebRequest.url, shExTrPreviousWebRequest.data, shExTrPreviousWebRequest.loadCallback);
+}
+
+function shExTrWebRequest(url, data, loadCallback){
+	console.log('Sending webrequest...');
+	isWaitingOnNetwork = true;
+	shExTrPreviousWebRequest.url = url;
+	shExTrPreviousWebRequest.data = data;
+	shExTrPreviousWebRequest.loadCallback = loadCallback;
+	var xhr = new XMLHttpRequest();
+	xhr.open("post", url, true);
+	xhr.setRequestHeader('Content-Type', 'text/plain');
+	xhr.onerror = shExTrOnWebRequestError;
+	xhr.onabort = shExTrOnWebRequestError;
+	xhr.onload = loadCallback;
+	xhr.send(data);
+}
+
 //Callback function for request when loading usernames from Google Sheet
 function shExTrOnLoadRefreshCountsFromGoogleSheet(){
 	shExTrCountsBeingRequested = false;
-	if (shExTrRefreshTimeout != -1){
-		clearTimeout(shExTrRefreshTimeout)
-		shExTrRefreshTimeout = -1;
-	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){

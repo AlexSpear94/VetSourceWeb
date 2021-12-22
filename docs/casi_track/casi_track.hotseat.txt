@@ -3,7 +3,7 @@
 // @description    Track ship numbers at Casi Stations
 // @author         Alex Spear
 // @include        http://casi-vetsource:7000/*
-// @version        0.4.0 Dev
+// @version        0.4.1
 // ==/UserScript==
 
 caTrInit();
@@ -12,7 +12,7 @@ caTrInit();
 //Main Init Function.
 function caTrInit(){
 	//Setup Globals
-	caTrVersion = "0.4.0 Dev";
+	caTrVersion = "0.4.1";
 	caTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	caTrDomain = "http://casi-vetsource:7000";
 	
@@ -23,6 +23,8 @@ function caTrInit(){
 	caTrEnableShipping = true;
 	caTrEnablePicking = false;
 	caTrEnableAutoAdvanceBelt = false;
+
+	caTrPreviousWebRequest = {"url":"", "data": "", "loadCallback": 0};
 	
 	let choseFunction = false;
 	//If page is Triage, setup Triage screen.
@@ -645,15 +647,31 @@ function caTrCreateNewPostRequest(){
 	return true;
 }
 
+function caTrOnWebRequestError(){
+	console.log("Webrequest Error!");
+	webRequest(caTrPreviousWebRequest.url, caTrPreviousWebRequest.data, caTrPreviousWebRequest.loadCallback);
+}
+
+function caTrWebRequest(url, data, loadCallback){
+	console.log('Sending webrequest...');
+	isWaitingOnNetwork = true;
+	caTrPreviousWebRequest.url = url;
+	caTrPreviousWebRequest.data = data;
+	caTrPreviousWebRequest.loadCallback = loadCallback;
+	var xhr = new XMLHttpRequest();
+	xhr.open("post", url, true);
+	xhr.setRequestHeader('Content-Type', 'text/plain');
+	xhr.onerror = caTrOnWebRequestError;
+	xhr.onabort = caTrOnWebRequestError;
+	xhr.onload = loadCallback;
+	xhr.send(data);
+}
+
 //Function to send the current post request to Google Sheet.
 function caTrSendPostRequest(){
 	console.log("Posting counts...");
 	
-	var xhr = new XMLHttpRequest();
-	xhr.open("post", caTrGoogleSheetURL, true);
-	xhr.setRequestHeader('Content-Type', 'text/plain');
-	xhr.onload = caTrPostResponse;
-	xhr.send(JSON.stringify(caTrPostRequest));
+	caTrWebRequest(caTrGoogleSheetURL, JSON.stringify(caTrPostRequest), caTrPostResponse);
 }
 
 //Main function to post counts to Google Sheet.

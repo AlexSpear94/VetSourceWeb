@@ -51,8 +51,10 @@ function initPage(){
 	_googleSheetURL = 'https://script.google.com/macros/s/AKfycbwg8fs3FQl9Qcad4mOdrVnJOFFnRNL23miQJh-A1Hifqqc1ixxfsjqXo9LdnhT4Wo6x/exec';
 	
 	countsBeingRequested = false;
+
 	refreshTimeout = -1;
-	webRetryTimeout = -1;
+
+	previousWebRequest = {"url":"", "data": "", "loadCallback": 0};
 	
 	initTable();
 	refreshDataFromGoogleSheet();
@@ -143,10 +145,6 @@ function buildTable(data) {
 //Callback function for request when loading data from Google Sheet
 function onLoadRefreshDataFromGoogleSheet(){
 	countsBeingRequested = false;
-	if (webRetryTimeout != -1){
-		clearTimeout(webRetryTimeout)
-		webRetryTimeout = -1;
-	}
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
@@ -186,14 +184,9 @@ function onLoadRefreshDataFromGoogleSheet(){
 
 //Function for requesting data from Google Sheet
 function refreshDataFromGoogleSheet(){
-	if (!countsBeingRequested || webRetryTimeout != -1){
+	if (!countsBeingRequested){
 		console.log('Getting data from Google Sheet...');
-		var xhr = new XMLHttpRequest();
-		xhr.open("post", _googleSheetURL, true);
-		xhr.setRequestHeader('Content-Type', 'text/plain');
-		xhr.onload = onLoadRefreshDataFromGoogleSheet;
-		webRetryTimeout = setTimeout(refreshDataFromGoogleSheet, 1000*10);
-		xhr.send(JSON.stringify({'postType': 'GetData'}));
+		webRequest(_googleSheetURL, JSON.stringify({'postType': 'GetData'}), onLoadRefreshDataFromGoogleSheet);
 		mainTableFooter.innerHTML = "Loading data...";
 		countsBeingRequested = true;
 		if (refreshTimeout != -1){
@@ -208,6 +201,25 @@ function refreshDataFromGoogleSheet(){
 			refreshTimeout = setTimeout(refreshDataFromGoogleSheet, d.getTime() - Date.now());
 		}
 	}
+}
+
+function onWebRequestError(){
+	console.log("Webrequest Error!");
+	webRequest(previousWebRequest.url, previousWebRequest.data, previousWebRequest.loadCallback);
+}
+
+function webRequest(url, data, loadCallback){
+	console.log('Sending webrequest...');
+	previousWebRequest.url = url;
+	previousWebRequest.data = data;
+	previousWebRequest.loadCallback = loadCallback;
+	var xhr = new XMLHttpRequest();
+	xhr.open("post", url, true);
+	xhr.setRequestHeader('Content-Type', 'text/plain');
+	xhr.onerror = onWebRequestError;
+	xhr.onabort = onWebRequestError;
+	xhr.onload = loadCallback;
+	xhr.send(data);
 }
 </script>
 <h1>V1 Metrics</h1>
