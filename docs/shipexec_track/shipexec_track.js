@@ -12,7 +12,7 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.6.4";
+	shExTrVersion = "1.7.0";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedUrlPaths = ['/ShipExec/Content/RateShip/Manifest.aspx'];
@@ -23,8 +23,6 @@ function shExTrInit(){
 	shExTrPreviousWebRequest = {"url":"", "data": "", "loadCallback": 0};
 
 	shExTrHasRefreshedCounts = false;
-	
-	//shExTrDebugMode = true;
 	
 	//Check the URL to see if it is the ShipExec shipping page.
 	if (typeof shExTrDebugMode === 'undefined'){
@@ -310,17 +308,15 @@ function shExTrInit(){
 	shExTrLoadUnsentCounts();
 	shExTrPersonalDataLoadAll();
 	
-	//Load list of valid usernames from Google Sheet
-	shExTrLoadValidUsernames();
-	
 	//Start timer of posting the counts
 	window.setInterval(shExTrDoCountsPost,10*60*1000);
 	//Do a post in 5 seconds
 	window.setTimeout(shExTrDoCountsPost,5*1000);
 	
-	//Request counts from Google Sheet initially.
+	//Request counts and names from Google Sheet initially. If location is unknown, just load names.
 	shExTrLoadLocation();
-	if (shExTrLocationName != "") shExTrRefreshCountsFromGoogleSheet();
+	if (shExTrLocationName != "") shExTrRequestCountsAndNames();
+	else shExTrLoadValidUsernames();
 	
 	//Override the loadSuccess function used by ShipExec.
 	loadSuccess = shExLoadSuccess;
@@ -918,7 +914,18 @@ function shExTrTableCellCSSGrandTotal(cell) {
 //#endregion
 
 //#region Network
-//Function for requesting usernames form Google Sheet
+
+//Function for requesting usernames and counts from Google Sheet
+function shExTrRequestCountsAndNames(){
+	shExTrHasRefreshedCounts = true;
+	if (!shExTrCountsBeingRequested){
+		console.log('Getting counts and names from Google Sheet...');
+		shExTrWebRequest(shExTrGoogleSheetURL, JSON.stringify({'postType': 'GetCountsAndNames','location': shExTrLocationName}), shExTrOnLoadCountsAndNames);
+		shExTrCountsBeingRequested = true;
+	}
+}
+
+//Function for requesting counts from Google Sheet
 function shExTrRefreshCountsFromGoogleSheet(){
 	shExTrHasRefreshedCounts = true;
 	if (!shExTrCountsBeingRequested){
@@ -934,7 +941,7 @@ function shExTrSendPostRequest(){
 	shExTrWebRequest(shExTrGoogleSheetURL, JSON.stringify(shExTrPostRequest), shExTrPostResponse);
 }
 
-//Function for requesting usernames form Google Sheet
+//Function for requesting usernames from Google Sheet
 function shExTrLoadValidUsernames(){
 	console.log('Loading usernames...');
 	shExTrWebRequest(shExTrGoogleSheetURL, JSON.stringify({'postType': 'GetNames'}), shExTrLoadUsernamesResponse);
@@ -1063,6 +1070,22 @@ function shExTrOnWebRequestError(){
 	webRequest(shExTrPreviousWebRequest.url, shExTrPreviousWebRequest.data, shExTrPreviousWebRequest.loadCallback);
 }
 
+function shExTrOnWebRequestReadyStateChanged(){
+	if (this.readyState === XMLHttpRequest.DONE){
+		var status = this.status;
+		if ((status >= 300 && status < 400)){
+			console.log("Webrequest status " + status + ": Redirect! Retrying!");
+			webRequest(shExTrPreviousWebRequest.url, shExTrPreviousWebRequest.data, shExTrPreviousWebRequest.loadCallback);
+			return;
+		}
+		if ((status >= 400)){
+			console.log("Webrequest status " + status + ": Error! Retrying!");
+			webRequest(shExTrPreviousWebRequest.url, shExTrPreviousWebRequest.data, shExTrPreviousWebRequest.loadCallback);
+			return
+		}
+	}
+}
+
 function shExTrWebRequest(url, data, loadCallback){
 	console.log('Sending webrequest...');
 	isWaitingOnNetwork = true;
@@ -1074,27 +1097,61 @@ function shExTrWebRequest(url, data, loadCallback){
 	xhr.setRequestHeader('Content-Type', 'text/plain');
 	xhr.onerror = shExTrOnWebRequestError;
 	xhr.onabort = shExTrOnWebRequestError;
+	xhr.ontimeout = shExTrOnWebRequestError;
+	xhr.onreadystatechange = shExTrOnWebRequestReadyStateChanged;
 	xhr.onload = loadCallback;
 	xhr.send(data);
 }
 
-//Callback function for request when loading usernames from Google Sheet
+function shExTrUpdateTableRefreshedLabel(){
+	let d = new Date();
+	let hours = d.getHours();
+	let ampm = hours >= 12 ? 'PM' : 'AM';
+	if (hours > 12) hours -= 12;
+	if (hours == 0) hours = 12;
+	let minutes = d.getMinutes();
+	if (minutes < 10) minutes = "0" + minutes;
+	shExTrTableCaption.innerHTML = "Daily Ship Counts. Refreshed at " + hours + ":" + minutes + " " + ampm + ".";
+}
+
+//Callback function for request when loading usernames and counts from Google Sheet
+function shExTrOnLoadCountsAndNames(){
+	shExTrCountsBeingRequested = false;
+	try{
+		var response = JSON.parse(this.responseText);
+		if (response.result == 'success'){
+			shExTrBuildTable(response.counts.data);
+			shExTrUpdateTableRefreshedLabel();
+			
+			let names = response.names.names.split(',');
+			let locations = response.names.locations.split(',');
+			for (let i = 0; i < names.length; i++){
+				if (names[i] != '') shExTrValidUsernames.push({'username':names[i],'location':locations[i]});
+			}
+			console.log('Count and Names request successful.');
+		}
+		else{
+			throw {"description":"Error in response from server!"};
+		}
+	}
+	catch (e){
+		console.log('Count and Names request unsuccessful: ' + this.responseText);
+		console.log(e.description);
+	}
+}
+
+//Callback function for request when loading counts from Google Sheet
 function shExTrOnLoadRefreshCountsFromGoogleSheet(){
 	shExTrCountsBeingRequested = false;
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
-			shExTrBuildTable(response.data);
+			shExTrBuildTable(response.counts.data);
+			shExTrUpdateTableRefreshedLabel();
 			console.log('Count request successful.');
-			
-			let d = new Date();
-			let hours = d.getHours();
-			let ampm = hours >= 12 ? 'PM' : 'AM';
-			if (hours > 12) hours -= 12;
-			if (hours == 0) hours = 12;
-			let minutes = d.getMinutes();
-			if (minutes < 10) minutes = "0" + minutes;
-			shExTrTableCaption.innerHTML = "Daily Ship Counts. Refreshed at " + hours + ":" + minutes + " " + ampm + ".";
+		}
+		else{
+			throw {"description":"Error in response from server!"};
 		}
 	}
 	catch (e){
@@ -1111,6 +1168,9 @@ function shExTrPostResponse(){
 			console.log('Post successful.');
 			shExTrPostRequest = null;
 			shExTrSavePostRequest();
+		}
+		else{
+			throw {"description":"Error in response from server!"};
 		}
 	}
 	catch (e){
@@ -1131,6 +1191,9 @@ function shExTrLoadUsernamesResponse(){
 				if (names[i] != '') shExTrValidUsernames.push({'username':names[i],'location':locations[i]});
 			}
 			console.log('Usernames request successful.');
+		}
+		else{
+			throw {"description":"Error in response from server!"};
 		}
 	}
 	catch (e){
