@@ -1372,6 +1372,7 @@ function webRequest(url, data, loadCallback){
 	xhr.setRequestHeader('Content-Type', 'text/plain');
 	xhr.onerror = onWebRequestError;
 	xhr.onabort = onWebRequestError;
+	xhr.ontimeout = onWebRequestError;
 	xhr.onload = loadCallback;
 	xhr.send(data);
 }

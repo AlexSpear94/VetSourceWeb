@@ -3,7 +3,7 @@
 // @description    Track ship numbers at Casi Stations
 // @author         Alex Spear
 // @include        http://casi-vetsource:7000/*
-// @version        0.4.1 Dev
+// @version        0.4.2 Dev
 // ==/UserScript==
 
 caTrInit();
@@ -12,7 +12,7 @@ caTrInit();
 //Main Init Function.
 function caTrInit(){
 	//Setup Globals
-	caTrVersion = "0.4.1 Dev";
+	caTrVersion = "0.4.2 Dev";
 	caTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	caTrDomain = "http://casi-vetsource:7000";
 	
@@ -664,6 +664,7 @@ function caTrWebRequest(url, data, loadCallback){
 	xhr.setRequestHeader('Content-Type', 'text/plain');
 	xhr.onerror = caTrOnWebRequestError;
 	xhr.onabort = caTrOnWebRequestError;
+	xhr.ontimeout = caTrOnWebRequestError;
 	xhr.onload = loadCallback;
 	xhr.send(data);
 }
