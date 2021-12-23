@@ -231,6 +231,8 @@ function initPage(){
 
 	currentHash = "";
 
+	refreshTime = Date.now();
+
 	loadTheme();
 
 	previousWebRequest = {"url":"", "data": "", "loadCallback": 0};
@@ -358,6 +360,9 @@ function unloadCurrentPage(){
 }
 
 function loadPage(page){
+	if (page > 0 && currentPage != 6 && currentPage != 8){
+		if (!refreshCheck()) return;
+	}
 	setOverlay(false,null,false);
 	hasUnsavedChanges = false;
 	if (isPageLoaded) unloadCurrentPage();
@@ -518,8 +523,15 @@ function setOverlay(visible, text, button){
 	elementDivOverlay.style.display = "none";
 }
 
+//Checks if a refresh has been done recently. If not, ask the user if they want to proceed.
+function refreshCheck(){
+	if ((Date.now() - refreshTime) < 1000*60*30) return true;//30 Minutes
+	return confirm("A refresh hasn't been done recently. Proceed?");
+}
+
 function updateRefreshedLabel(){
 	var d = new Date();
+	refreshTime = d.getTime();
 	var hours = d.getHours();
 	var ampm = hours >= 12 ? 'PM' : 'AM';
 	if (hours > 12) hours -= 12;
