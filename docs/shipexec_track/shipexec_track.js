@@ -12,7 +12,7 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.7.0";
+	shExTrVersion = "1.7.1";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedUrlPaths = ['/ShipExec/Content/RateShip/Manifest.aspx'];
@@ -1146,7 +1146,7 @@ function shExTrOnLoadRefreshCountsFromGoogleSheet(){
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
-			shExTrBuildTable(response.counts.data);
+			shExTrBuildTable(response.data);
 			shExTrUpdateTableRefreshedLabel();
 			console.log('Count request successful.');
 		}
