@@ -157,6 +157,11 @@ table{
 	right: 0%;
 	bottom: 0%;
 }
+.fixedBottomLeft{
+	position: fixed;
+	left: 0%;
+	bottom: 0%;
+}
 .overlayText{
 	margin: 0;
 	position: absolute;
@@ -255,6 +260,7 @@ function onDataLoaded(){
 	var disableBins = true;
 	var disablePreviousRound = true;
 	var disableReceiving = true;
+	document.getElementById('divBottomLeft').style.display = 'none';
 	for (var i = 0; i < tableData.length; i++){
 		if (tableData[i].BINS_NEEDED > 0){
 			disableBins = false;
@@ -1540,6 +1546,9 @@ function webRequest(url, data, loadCallback){
 	</div>
 	<div class="fixedBottomRight">
 		<button onclick="onThemeButtonClick();">Switch Theme</button>
+	</div>
+	<div class="fixedBottomLeft" id="divBottomLeft">
+		<p>Make sure adblockers are disabled for this site</p>
 	</div>
 </div>
 <div id="divOverlay">
