@@ -12,7 +12,7 @@ shExTrInit();
 
 //Main Init function.
 function shExTrInit(){
-	shExTrVersion = "1.7.1";
+	shExTrVersion = "1.8.0";
 	shExTrShExVersion = "1.12.17069.1";
 	shExTrGoogleSheetURL = 'https://script.google.com/macros/s/AKfycbzo1AUyBmZCdzEPbSIvkvvaMWDETwNvTRfNLweiC0s1CCo-RywIT8ul3zlAF3NpXYQ51w/exec';
 	shExTrAllowedUrlPaths = ['/ShipExec/Content/RateShip/Manifest.aspx'];
@@ -48,8 +48,7 @@ function shExTrInit(){
 	//Initialize some global variables which will remain for the duration of the page lifetime.
 	shExTrDoAutoship = true;
 	
-	shExTrIsLoggedIn = false;
-	shExTrLoginToken = '';
+	shExTrIsLoggedIn = true;
 	shExTrLoginName = 'no_user';
 	
 	shExTrLastShipTime = new Date();
@@ -90,18 +89,6 @@ function shExTrInit(){
 	shExTrCountsButton.style.marginLeft = '5px';
 	shExTrCountsButton.appendChild(document.createTextNode('Hide Counts'));
 	
-	//Create Login Button
-	shExTrLoginButton = document.createElement('a');
-	shExTrLoginButton.className = 'ButtonColorGroup';
-	shExTrLoginButton.style.marginLeft = '5px';
-	shExTrLoginButton.appendChild(document.createTextNode('Login'));
-	
-	//Create Logout Button
-	shExTrLogoutButton = document.createElement('a');
-	shExTrLogoutButton.className = 'ButtonColorGroup';
-	shExTrLogoutButton.style.marginLeft = '5px';
-	shExTrLogoutButton.appendChild(document.createTextNode('Logout'));
-	
 	//Create Refresh Counts Button
 	shExTrRefreshCountsButton = document.createElement('a');
 	shExTrRefreshCountsButton.className = 'ButtonColorGroup';
@@ -110,36 +97,6 @@ function shExTrInit(){
 	shExTrRefreshCountsButton.style.fontSize = '12px';
 	shExTrRefreshCountsButton.appendChild(document.createTextNode('Refresh Counts'));
 	shExTrRefreshCountsButton.addEventListener('click',shExTrOnButtonRefreshCountsClick);
-	
-	//Create Username Label
-	shExTrUserLabel = document.createElement('span');
-	shExTrUserLabel.style.marginLeft = '5px';
-	shExTrUserLabel.appendChild(document.createTextNode('Username:'));
-	
-	//Create Password Label
-	shExTrPassLabel = document.createElement('span');
-	shExTrPassLabel.style.marginLeft = '5px';
-	shExTrPassLabel.appendChild(document.createTextNode('Password:'));
-	
-	//Create Logged In Label
-	shExTrLoggedInLabel = document.createElement('span');
-	shExTrLoggedInLabel.style.marginLeft = '5px';
-	shExTrLoggedInLabel.appendChild(document.createTextNode('Logged in as: '));
-	
-	//Create Not Logged In Label
-	shExTrNotLoggedInLabel = document.createElement('span');
-	shExTrNotLoggedInLabel.style.marginLeft = '5px';
-	shExTrNotLoggedInLabel.style.color = 'red';
-	shExTrNotLoggedInLabel.appendChild(document.createTextNode('Not logged in for tracking!'));
-	
-	//Create Username Input Field
-	shExTrInputUser = document.createElement('input');
-	shExTrInputUser.style.marginLeft = '5px';
-	
-	//Create Password Input Field
-	shExTrInputPass = document.createElement('input');
-	shExTrInputPass.type = 'password';
-	shExTrInputPass.style.marginLeft = '5px';
 	
 	//Create the Counts Table
 	shExTrTable = document.createElement('table');
@@ -202,14 +159,6 @@ function shExTrInit(){
 	//Add new elements to the Toolbar
 	bottomButtonBarElement.insertBefore(shExTrAutoButton, bottomButtonBarElement.childNodes[0]);
 	bottomButtonBarElement.insertBefore(shExTrCountsButton, bottomButtonBarElement.childNodes[0]);
-	bottomButtonBarElement.insertBefore(shExTrLogoutButton, bottomButtonBarElement.childNodes[0]);
-	bottomButtonBarElement.insertBefore(shExTrLoggedInLabel, bottomButtonBarElement.childNodes[0]);
-	bottomButtonBarElement.insertBefore(shExTrLoginButton, bottomButtonBarElement.childNodes[0]);
-	//bottomButtonBarElement.insertBefore(shExTrInputPass, bottomButtonBarElement.childNodes[0]);
-	//bottomButtonBarElement.insertBefore(shExTrPassLabel, bottomButtonBarElement.childNodes[0]);
-	bottomButtonBarElement.insertBefore(shExTrInputUser, bottomButtonBarElement.childNodes[0]);
-	bottomButtonBarElement.insertBefore(shExTrUserLabel, bottomButtonBarElement.childNodes[0]);
-	bottomButtonBarElement.insertBefore(shExTrNotLoggedInLabel, bottomButtonBarElement.childNodes[0]);
 	
 	//-----Metrics display section-----
 	
@@ -280,33 +229,17 @@ function shExTrInit(){
 	//Add event to View Counts Button for toggling
 	shExTrCountsButton.addEventListener('click',shExTrOnButtonViewCountsClick);
 	
-	//Add event to login button
-	shExTrLoginButton.addEventListener('click',shExTrOnButtonLoginClick);
-	
-	//Add event to logout button
-	shExTrLogoutButton.addEventListener('click',shExTrOnButtonLogoutClick);
-	
-	//Add event for pressing enter in username input field
-	shExTrInputUser.addEventListener("keyup", shExTrOnInputUsernameKeyUp);
-	
 	//Add event for change in load input field
 	shExloadInputElement.addEventListener("change", shExTrOnInputLoadChange);
 	
-	//Load cookies for login status if present.
-	shExTrLoginToken = shExTrGetCookie('ShExTrToken');
-	shExTrLoginName = shExTrGetCookie('ShExTrName');
-	if (shExTrLoginToken != ''){
-		//TODO: check if login is still valid with server
-		shExTrIsLoggedIn = true;
-	}
-	
-	//Update logged-in state appropriatly if log in was found or not.
-	if (shExTrIsLoggedIn) shExTrSetVisualAsLoggedIn();
-	else shExTrSetVisualAsLoggedOut();
+	//Find username Label
+	usernameLabel = document.getElementById('ctl00_upsHeader_ctl00_LoginView1_LoginName1');
+	shExTrLoginName = usernameLabel.innerText.toLowerCase();
 	
 	//Load data from cookies.
 	shExTrLoadUnsentCounts();
 	shExTrPersonalDataLoadAll();
+	shExTrPersonalDataFindActive();
 	
 	//Start timer of posting the counts
 	window.setInterval(shExTrDoCountsPost,10*60*1000);
@@ -315,6 +248,7 @@ function shExTrInit(){
 	
 	//Request counts and names from Google Sheet initially. If location is unknown, just load names.
 	shExTrLoadLocation();
+	shExTrLocationFromUsername();
 	if (shExTrLocationName != "") shExTrRequestCountsAndNames();
 	else shExTrLoadValidUsernames();
 	
@@ -325,11 +259,7 @@ function shExTrInit(){
 	shipSuccess = shExShipSuccess;
 	
 	//If logged in, focus the load button. Otherwise focus the username button.
-	if (shExTrIsLoggedIn) shExloadButtonElement.click();
-	else{
-		if (document.getElementById('ctl00_cphContent_load_panel').style.display != 'none') document.getElementById('ctl00_cphContent_load_cancel_btn').click();
-		shExTrInputUser.focus();
-	}
+	shExTrFocusLoadOrUser();
 	
 	if (typeof shExTrDebugMode !== 'undefined'){
 		//Create Debug Ship Button
@@ -521,39 +451,22 @@ function shExLoadSuccess(result){
 }
 //#endregion
 
-//Function for Updating elements after logging in.
-function shExTrSetVisualAsLoggedIn(){
-	shExTrLogoutButton.style.display = 'inline';
-	shExTrLoggedInLabel.style.display = 'inline';
-	shExTrLoginButton.style.display = 'none';
-	shExTrInputPass.style.display = 'none';
-	shExTrPassLabel.style.display = 'none';
-	shExTrInputUser.style.display = 'none';
-	shExTrUserLabel.style.display = 'none';
-	shExTrNotLoggedInLabel.style.display = 'none';
-	shExTrLoggedInLabel.innerHTML = 'Logged in as: ' + shExTrLoginName;
-}
-	
-//Function for Updating elements after logging out.
-function shExTrSetVisualAsLoggedOut(){
-	shExTrLogoutButton.style.display = 'none';
-	shExTrLoggedInLabel.style.display = 'none';
-	shExTrLoginButton.style.display = 'inline';
-	shExTrInputPass.style.display = 'inline';
-	shExTrPassLabel.style.display = 'inline';
-	shExTrInputUser.style.display = 'inline';
-	shExTrUserLabel.style.display = 'inline';
-	shExTrNotLoggedInLabel.style.display = 'inline';
-}
-
 //Function for focusing the load field or the username field depending on login status.
 function shExTrFocusLoadOrUser(){
-	if (shExTrIsLoggedIn){
-		shExloadButtonElement.click();
-	}
-	else{
-		if (document.getElementById('ctl00_cphContent_load_panel').style.display != 'none') document.getElementById('ctl00_cphContent_load_cancel_btn').click();
-		shExTrInputUser.focus();
+	shExloadButtonElement.click();
+}
+
+//Function for setting the location based on the current username
+function shExTrLocationFromUsername(){
+	for (let i = 0; i < shExTrValidUsernames.length; i++){
+		if (shExTrLoginName == shExTrValidUsernames[i].username){
+			if (shExTrLocationName != shExTrValidUsernames[i].location){
+				shExTrLocationName = shExTrValidUsernames[i].location;
+				shExTrSaveLocation();
+				shExTrRefreshCountsFromGoogleSheet();
+			}
+			break;
+		}
 	}
 }
 
@@ -949,74 +862,10 @@ function shExTrLoadValidUsernames(){
 //#endregion
 
 //#region Event Handlers
-//Callback function for clicking on the Logout Button.
-function shExTrOnButtonLogoutClick(){
-	shExTrIsLoggedIn = false;
-	shExTrLoginToken = '';
-	shExTrLoginName = 'no_user';
-	shExTrSetVisualAsLoggedOut();
-	shExTrHasShippedSinceLogIn = false;
-	$('#' + status_lbl_id).text('Logged out.').css('color', 'red');
-	
-	//Remove login cookies.
-	const d = new Date();
-	let expires = 'expires='+ d.toUTCString();
-	document.cookie = 'ShExTrName=;' + expires + ';';
-	document.cookie = 'ShExTrToken=;' + expires + ';';
-	
-	shExTrFocusLoadOrUser();
-}
 
-//Callback functoin for clicking on the Refresh counts button under the table.
+//Callback function for clicking on the Refresh counts button under the table.
 function shExTrOnButtonRefreshCountsClick(){
 	shExTrRefreshCountsFromGoogleSheet();
-	shExTrFocusLoadOrUser();
-}
-
-//Callback function for clicking on the Login Button.
-function shExTrOnButtonLoginClick(){
-	if (shExTrValidUsernames.length <= 0){
-		if (!shExTrLoadingUsernames) shExTrLoadValidUsernames();
-		$('#' + status_lbl_id).text('Validating username. Please try again in a couple seconds.').css('color', 'red');
-		return;
-	}
-	let isNameValid = false;
-	let tempname = shExTrInputUser.value.toLowerCase()
-	for (let i = 0; i < shExTrValidUsernames.length; i++){
-		if (tempname == shExTrValidUsernames[i].username){
-			isNameValid = true;
-			if (shExTrLocationName != shExTrValidUsernames[i].location){
-				shExTrLocationName = shExTrValidUsernames[i].location;
-				shExTrSaveLocation();
-				shExTrRefreshCountsFromGoogleSheet();
-			}
-			break;
-		}
-	}
-	if (!isNameValid){
-		$('#' + status_lbl_id).text('Invalid username! Please enter your username.').css('color', 'red');
-		return;
-	}
-	if (!shExTrHasRefreshedCounts) shExTrRefreshCountsFromGoogleSheet();
-	
-	shExTrIsLoggedIn = true;
-	shExTrLoginName = tempname;
-	shExTrLoginToken = '1234';
-	shExTrSetVisualAsLoggedIn();
-	shExTrHasShippedSinceLogIn = false;
-	shExTrPersonalDataDoLogin();
-	$('#' + status_lbl_id).text('Logged in for counting.').css('color', 'green');
-	shExTrInputUser.value = '';
-	
-	//Add login token cookies, so the login session will attempt to remain on page reload.
-	const d = new Date();
-	d.setTime(d.getTime() + (1*24*60*60*1000));
-	d.setHours(0);
-	d.setMinutes(0);
-	let expires = 'expires='+ d.toUTCString();
-	document.cookie = 'ShExTrName=' + shExTrLoginName + ';' + expires + ';';
-	document.cookie = 'ShExTrToken=' + shExTrLoginToken + ';' + expires + ';';
-	
 	shExTrFocusLoadOrUser();
 }
 
@@ -1043,17 +892,6 @@ function shExTrOnButtonViewCountsClick(){
 		shEvTrCountsTableShown = false;
 	}
 	shExTrFocusLoadOrUser();
-}
-
-//Callback function for key being raised when in the Username Input.
-function shExTrOnInputUsernameKeyUp(event){
-	// Number 13 is the "Enter" key on the keyboard
-	if (event.keyCode === 13) {
-		// Cancel the default action
-		event.preventDefault();
-		
-		shExTrLoginButton.click();
-	}
 }
 
 //Callback function for Load Input being changed.
@@ -1120,14 +958,16 @@ function shExTrOnLoadCountsAndNames(){
 	try{
 		var response = JSON.parse(this.responseText);
 		if (response.result == 'success'){
-			shExTrBuildTable(response.counts.data);
-			shExTrUpdateTableRefreshedLabel();
-			
 			let names = response.names.names.split(',');
 			let locations = response.names.locations.split(',');
 			for (let i = 0; i < names.length; i++){
 				if (names[i] != '') shExTrValidUsernames.push({'username':names[i],'location':locations[i]});
 			}
+			shExTrLocationFromUsername();
+			
+			shExTrBuildTable(response.counts.data);
+			shExTrUpdateTableRefreshedLabel();
+			
 			console.log('Count and Names request successful.');
 		}
 		else{
@@ -1190,6 +1030,7 @@ function shExTrLoadUsernamesResponse(){
 			for (let i = 0; i < names.length; i++){
 				if (names[i] != '') shExTrValidUsernames.push({'username':names[i],'location':locations[i]});
 			}
+			shExTrLocationFromUsername();
 			console.log('Usernames request successful.');
 		}
 		else{
